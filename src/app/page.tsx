@@ -226,7 +226,7 @@ export default function RootLandingPage() {
           </div>
 
           <div style={{ marginTop: '2.5rem' }}>
-            <Link href="/module3" style={{
+            <Link href="/" style={{
               display: 'block',
               textAlign: 'center',
               padding: '1rem',

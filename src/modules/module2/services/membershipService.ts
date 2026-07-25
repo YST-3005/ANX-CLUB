@@ -1,4 +1,4 @@
-import { db } from '@/lib/firebase';
+import { adminDb as db } from '@/lib/firebase/admin';
 import { MembershipInfo } from '@/modules/module2/types/dashboard';
 import { getMembershipByUserId } from '@/modules/module2/data';
 

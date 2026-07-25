@@ -7,7 +7,7 @@ import { getAnnouncements } from '@/modules/module2/services/announcementService
 import { getProjects } from '@/modules/module2/services/projectService';
 import { DashboardResponse } from '@/modules/module2/types/dashboard';
 import { getRecommendationsByUserId, getUserByIdOrEmail } from '@/modules/module2/data';
-import { db } from '@/lib/firebase';
+import { adminDb as db } from '@/lib/firebase/admin';
 
 export async function GET(req: NextRequest) {
   try {

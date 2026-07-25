@@ -2,7 +2,7 @@
 
 import { useAuth } from "./AuthContext";
 import { useState, useEffect, useRef } from "react";
-import { db } from "@/modules/module3/lib/firebase/client";
+import { db } from "@/lib/firebase/client";
 import { collection, query, where, onSnapshot, updateDoc, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
@@ -135,3 +135,4 @@ export default function NotificationBell() {
     </div>
   );
 }
+

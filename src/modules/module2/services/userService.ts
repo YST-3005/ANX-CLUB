@@ -1,4 +1,4 @@
-import { db } from '@/lib/firebase';
+import { adminDb as db } from '@/lib/firebase/admin';
 import { UserProfile } from '@/modules/module2/types/dashboard';
 import { getUserByIdOrEmail } from '@/modules/module2/data';
 

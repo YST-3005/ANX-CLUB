@@ -45,7 +45,7 @@ export default function CommandPalette() {
     debounceRef.current = setTimeout(async () => {
       setIsSearchingAI(true);
       try {
-        const res = await fetch('/api/v1/module3/ai-search', {
+        const res = await fetch('/api/v1/ai-search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: search })
@@ -75,10 +75,10 @@ export default function CommandPalette() {
   };
 
   const actions = [
-    { name: "Browse Events", onSelect: () => router.push('/module3/events') },
-    { name: "Create an Event", onSelect: () => router.push('/module3/events/create') },
+    { name: "Browse Events", onSelect: () => router.push('/events') },
+    { name: "Create an Event", onSelect: () => router.push('/events/create') },
     { name: "Toggle Dark Mode", onSelect: () => setTheme(theme === "dark" ? "light" : "dark") },
-    { name: "Messages", onSelect: () => router.push('/module3/messages') },
+    { name: "Messages", onSelect: () => router.push('/messages') },
   ];
 
   const filteredActions = actions.filter((action) =>

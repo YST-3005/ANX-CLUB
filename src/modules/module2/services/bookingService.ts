@@ -1,4 +1,4 @@
-import { db } from '@/lib/firebase';
+import { adminDb as db } from '@/lib/firebase/admin';
 import { MentorBooking } from '@/modules/module2/types/dashboard';
 import { getBookingsByUserId } from '@/modules/module2/data';
 

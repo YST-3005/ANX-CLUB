@@ -4,7 +4,7 @@ import { useAuth } from "@/modules/module3/components/AuthContext";
 import { useState, useRef, useEffect } from "react";
 import { User } from "lucide-react";
 import Link from "next/link";
-import { auth } from "@/modules/module3/lib/firebase/client";
+import { auth } from "@/lib/firebase/client";
 
 export function ProfileDropdown() {
   const { user, profile } = useAuth();
@@ -116,7 +116,7 @@ export function ProfileDropdown() {
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-            <Link href="/module3/profile" className="btn btn-primary" style={{ flex: 1, textAlign: 'center', padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => setOpen(false)}>
+            <Link href="/profile" className="btn btn-primary" style={{ flex: 1, textAlign: 'center', padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => setOpen(false)}>
               Edit Profile
             </Link>
             <button className="btn btn-secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => auth.signOut()}>
@@ -128,3 +128,4 @@ export function ProfileDropdown() {
     </div>
   );
 }
+
