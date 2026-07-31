@@ -1,164 +1,252 @@
-"use client";
+'use client';
 
-import { useAuth } from "@/modules/module3/components/AuthContext";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
-import toast from "react-hot-toast";
+import { use } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { mentorsApi } from '@/lib/api';
+import { useAuth } from '@/providers/AuthProvider';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Avatar } from '@/components/ui/Avatar';
+import { Input, Textarea } from '@/components/ui/Input';
+import { Modal, ModalFooter } from '@/components/ui/Modal';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { ErrorState } from '@/components/ui/EmptyState';
+import { formatDate } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Star, Clock, Calendar, Briefcase, CheckCircle, MessageSquare } from 'lucide-react';
+import Link from 'next/link';
+import toast from 'react-hot-toast';
+import { useState } from 'react';
 
-export default function MentorProfile({ params }: { params: { id: string } }) {
-  const { user, profile } = useAuth();
-  const router = useRouter();
-  
-  const [mentor, setMentor] = useState<any>(null);
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+interface Params { id: string }
 
-  useEffect(() => {
-    const fetchMentorData = async () => {
-      try {
-        const [mentorRes, reviewsRes] = await Promise.all([
-          fetch(`/api/v1/mentors/${params.id}`),
-          fetch(`/api/v1/mentors/${params.id}/reviews`)
-        ]);
-        
-        if (!mentorRes.ok) throw new Error('Mentor not found');
-        
-        const mentorData = await mentorRes.json();
-        setMentor(mentorData);
-        
-        if (reviewsRes.ok) {
-          const reviewsData = await reviewsRes.json();
-          setReviews(reviewsData);
-        }
-      } catch (err: any) {
-        toast.error(err.message);
-        router.push('/mentors');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMentorData();
-  }, [params.id, router]);
+export default function MentorDetailPage({ params }: { params: Promise<Params> }) {
+  const { id } = use(params);
+  const { user, isAuthenticated } = useAuth();
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [date, setDate] = useState('');
+  const [message, setMessage] = useState('');
 
-  if (loading) return <div className="container" style={{ padding: '4rem 0', textAlign: 'center' }}>Loading profile...</div>;
-  if (!mentor) return null;
+  const { data: mentor, isLoading, isError, refetch } = useQuery({
+    queryKey: ['mentor', id],
+    queryFn: async () => {
+      const res = await mentorsApi.get(id);
+      return res.data?.data || res.data;
+    },
+  });
 
-  const averageRating = reviews.length > 0 
-    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
-    : null;
+  const { data: reviews = [] } = useQuery({
+    queryKey: ['mentor-reviews', id],
+    queryFn: async () => {
+      const res = await mentorsApi.getReviews(id);
+      const raw = res.data;
+      return Array.isArray(raw) ? raw : raw?.data || [];
+    },
+  });
 
-  return (
-    <div className="container" style={{ padding: '4rem 0', maxWidth: '800px' }}>
-      <div className="glass-panel" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          
-          {mentor.imageUrl ? (
-            <Image src={mentor.imageUrl} alt={mentor.name} width={120} height={120} style={{ borderRadius: '50%', objectFit: 'cover' }} />
-          ) : (
-            <div style={{ width: '120px', height: '120px', borderRadius: '50%', backgroundColor: 'var(--surface-color)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '3rem', fontWeight: 700, color: 'var(--primary-color)' }}>
-              {mentor.name.charAt(0)}
-            </div>
-          )}
+  const bookMutation = useMutation({
+    mutationFn: () => mentorsApi.book(id, { scheduledAt: date, message, userId: user?.uid }),
+    onSuccess: () => {
+      toast.success('Session booked successfully!');
+      setBookingOpen(false);
+      setDate('');
+      setMessage('');
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to book session');
+    },
+  });
 
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h1 style={{ marginBottom: '0.5rem' }}>{mentor.name}</h1>
-                <div style={{ fontSize: '1.25rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                  {mentor.role} @ {mentor.company}
-                </div>
-              </div>
-              {averageRating && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--surface-color)', padding: '0.5rem 1rem', borderRadius: '2rem' }}>
-                  <span style={{ color: '#fbbf24', fontSize: '1.25rem' }}>★</span>
-                  <span style={{ fontWeight: 600 }}>{averageRating}</span>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>({reviews.length})</span>
-                </div>
-              )}
-            </div>
-
-            {mentor.linkedin && (
-              <a href={mentor.linkedin} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color)', textDecoration: 'underline', display: 'inline-block', marginBottom: '1.5rem' }}>
-                View LinkedIn Profile
-              </a>
-            )}
-
-            <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ marginBottom: '0.5rem' }}>About</h3>
-              <p style={{ lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{mentor.bio}</p>
-            </div>
-
-            <div style={{ marginBottom: '3rem' }}>
-              <h3 style={{ marginBottom: '0.5rem' }}>Mentorship Topics</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                {mentor.topics.map((topic: string) => (
-                  <span key={topic} style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--surface-color)', borderRadius: '2rem', fontSize: '0.875rem' }}>
-                    {topic}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <Link href={`/mentors/${mentor.id}/book`} className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.125rem' }}>
-                Request a Session
-              </Link>
-              {mentor.ownerEmail && (
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ padding: '1rem 2rem', fontSize: '1.125rem' }}
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/api/v1/chats', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          currentEmail: user?.email,
-                          currentUserName: profile?.fullName || 'User',
-                          targetEmail: mentor.ownerEmail,
-                          targetUserName: mentor.name
-                        })
-                      });
-                      if (!res.ok) throw new Error('Failed to start chat');
-                      const data = await res.json();
-                      router.push(`/messages/${data.chatId}`);
-                    } catch (error: any) {
-                      toast.error(error.message);
-                    }
-                  }}
-                >
-                  Message Mentor
-                </button>
-              )}
-            </div>
-            
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <Skeleton className="h-6 w-32" />
+        <div className="flex gap-4">
+          <Skeleton className="h-20 w-20 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-32" />
           </div>
         </div>
       </div>
+    );
+  }
 
-      {reviews.length > 0 && (
-        <div className="glass-panel">
-          <h2 style={{ marginBottom: '1.5rem' }}>Mentee Reviews</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {reviews.map(review => (
-              <div key={review.id} style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span style={{ fontWeight: 600 }}>{review.memberName}</span>
-                  <div style={{ color: '#fbbf24' }}>
-                    {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+  if (isError || !mentor) return <ErrorState onRetry={refetch} />;
+
+  const avgRating = reviews.length
+    ? (reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviews.length).toFixed(1)
+    : mentor?.rating || null;
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <Link href="/mentors" className="inline-flex items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground transition-colors">
+        <ArrowLeft className="h-4 w-4" />
+        Back to Mentors
+      </Link>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Profile */}
+        <div className="lg:col-span-2 space-y-5">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <Card>
+              <div className="flex items-start gap-5">
+                <Avatar name={mentor.name} src={mentor.photoUrl} size="xl" />
+                <div className="flex-1">
+                  <h1 className="text-xl font-bold text-foreground">{mentor.name}</h1>
+                  <p className="text-sm text-foreground-secondary mt-0.5">
+                    {mentor.title || mentor.designation}
+                    {mentor.company && ` at ${mentor.company}`}
+                  </p>
+
+                  {avgRating && (
+                    <div className="flex items-center gap-1.5 mt-2">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} className={`h-4 w-4 ${s <= Math.round(Number(avgRating)) ? 'text-warning fill-warning' : 'text-foreground-muted'}`} />
+                      ))}
+                      <span className="text-sm text-foreground-secondary">{avgRating}</span>
+                      <span className="text-xs text-foreground-muted">({reviews.length} reviews)</span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {mentor.isAvailable !== false && <Badge variant="success" dot>Available</Badge>}
+                    {mentor.yearsOfExperience && <Badge variant="default"><Briefcase className="h-3 w-3" />{mentor.yearsOfExperience}y exp</Badge>}
+                    {mentor.sessionDuration && <Badge variant="default"><Clock className="h-3 w-3" />{mentor.sessionDuration}min</Badge>}
                   </div>
                 </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-                  {new Date(review.createdAt).toLocaleDateString()}
-                </p>
-                {review.comment && <p style={{ lineHeight: 1.5 }}>{review.comment}</p>}
               </div>
-            ))}
-          </div>
+
+              {mentor.bio && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <p className="text-sm text-foreground-secondary leading-relaxed">{mentor.bio}</p>
+                </div>
+              )}
+            </Card>
+          </motion.div>
+
+          {/* Skills */}
+          {mentor.expertise?.length > 0 && (
+            <Card>
+              <h2 className="text-sm font-semibold text-foreground mb-3">Areas of Expertise</h2>
+              <div className="flex flex-wrap gap-2">
+                {mentor.expertise.map((skill: string) => (
+                  <Badge key={skill} variant="primary">{skill}</Badge>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Reviews */}
+          <Card padding="none">
+            <div className="p-5 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground">Reviews ({reviews.length})</h2>
+            </div>
+            <div className="divide-y divide-border">
+              {reviews.length === 0 ? (
+                <div className="p-8 text-center text-sm text-foreground-muted">No reviews yet</div>
+              ) : (
+                reviews.slice(0, 5).map((review: any) => (
+                  <div key={review.id} className="p-4">
+                    <div className="flex items-start gap-3">
+                      <Avatar name={review.reviewerName || 'User'} size="sm" />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-foreground">{review.reviewerName || 'Anonymous'}</p>
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Star key={s} className={`h-3 w-3 ${s <= review.rating ? 'text-warning fill-warning' : 'text-foreground-muted'}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs text-foreground-muted mt-1">{review.content || review.review}</p>
+                        <p className="text-[10px] text-foreground-muted mt-1.5">{formatDate(review.createdAt)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
         </div>
-      )}
+
+        {/* Sidebar: Booking */}
+        <div>
+          <Card className="sticky top-20">
+            <div className="text-center mb-4">
+              <p className="text-2xl font-bold text-foreground">
+                {mentor.sessionFee ? `₹${mentor.sessionFee}` : 'Free'}
+              </p>
+              <p className="text-xs text-foreground-muted">per session</p>
+            </div>
+
+            <div className="space-y-3 mb-5 text-sm">
+              {mentor.sessionDuration && (
+                <div className="flex justify-between text-foreground-secondary">
+                  <span className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> Duration</span>
+                  <span className="font-medium text-foreground">{mentor.sessionDuration} min</span>
+                </div>
+              )}
+              {mentor.sessionsCompleted !== undefined && (
+                <div className="flex justify-between text-foreground-secondary">
+                  <span className="flex items-center gap-1.5"><CheckCircle className="h-4 w-4" /> Sessions done</span>
+                  <span className="font-medium text-foreground">{mentor.sessionsCompleted}</span>
+                </div>
+              )}
+            </div>
+
+            <Button
+              variant="primary"
+              className="w-full"
+              onClick={() => {
+                if (!isAuthenticated) { toast.error('Please sign in first'); return; }
+                setBookingOpen(true);
+              }}
+            >
+              Book a Session
+            </Button>
+
+            <Link href="/community" className="mt-3 block">
+              <Button variant="ghost" size="sm" className="w-full" leftIcon={<MessageSquare className="h-4 w-4" />}>
+                Ask in Community
+              </Button>
+            </Link>
+          </Card>
+        </div>
+      </div>
+
+      {/* Booking Modal */}
+      <Modal isOpen={bookingOpen} onClose={() => setBookingOpen(false)} title="Book a Session" size="md">
+        <div className="space-y-4">
+          <Input
+            label="Preferred Date & Time"
+            type="datetime-local"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            leftIcon={<Calendar className="h-4 w-4" />}
+            required
+          />
+          <Textarea
+            label="Message to Mentor (optional)"
+            placeholder="What would you like to discuss?"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={3}
+          />
+        </div>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setBookingOpen(false)}>Cancel</Button>
+          <Button
+            variant="primary"
+            isLoading={bookMutation.isPending}
+            onClick={() => bookMutation.mutate()}
+            disabled={!date}
+          >
+            Confirm Booking
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }

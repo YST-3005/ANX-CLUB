@@ -1,147 +1,126 @@
-"use client";
+'use client';
 
-import { useAuth } from "@/modules/module3/components/AuthContext";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import toast from "react-hot-toast";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { adminApi } from '@/lib/api';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { SkeletonTable } from '@/components/ui/Skeleton';
+import { EmptyState, ErrorState } from '@/components/ui/EmptyState';
+import { formatDate, formatCurrency } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import { Calendar, CheckCircle, Plus, Users } from 'lucide-react';
+import Link from 'next/link';
+import toast from 'react-hot-toast';
 
-export default function AdminEvents() {
-  const { user, profile, loading } = useAuth();
-  const router = useRouter();
-  const [events, setEvents] = useState<any[]>([]);
-  const [loadingEvents, setLoadingEvents] = useState(true);
-  const [activeTab, setActiveTab] = useState<"approved" | "pending">("approved");
+export default function AdminEventsPage() {
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.push("/login");
-      } else if (profile?.role !== "Admin") {
-        router.push("/dashboard");
-      } else {
-        fetchEvents();
-      }
-    }
-  }, [user, profile, loading, router]);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['admin-events'],
+    queryFn: async () => {
+      const res = await adminApi.getEvents();
+      const raw = res.data;
+      return Array.isArray(raw) ? raw : raw?.data || [];
+    },
+  });
 
-  const fetchEvents = async () => {
-    try {
-      const res = await fetch('/api/v1/admin/events');
-      if (!res.ok) throw new Error('Failed to fetch events');
-      const data = await res.json();
-      setEvents(data);
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setLoadingEvents(false);
-    }
-  };
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => adminApi.approveEvent(id),
+    onSuccess: (_, id) => {
+      toast.success('Event approved!');
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] });
+    },
+    onError: () => toast.error('Failed to approve event'),
+  });
 
-  const handleStatusUpdate = async (eventId: string, action: 'Approve' | 'Reject') => {
-    try {
-      const res = await fetch(`/api/v1/admin/events/${eventId}/approve`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
-      });
-      if (!res.ok) throw new Error(`Failed to ${action.toLowerCase()} event`);
-      toast.success(`Event ${action.toLowerCase()}d successfully`);
-      fetchEvents();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  if (loading || !user || profile?.role !== "Admin") return <div className="container" style={{ padding: "4rem 0" }}>Loading...</div>;
-
-  const approvedEvents = events.filter(e => !e.status || e.status === 'Approved');
-  const pendingEvents = events.filter(e => e.status === 'Pending');
+  const events = data || [];
 
   return (
-    <div className="container" style={{ padding: '2rem 0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1>Manage Events</h1>
-        <Link href="/admin/events/create" className="btn btn-primary">
-          Create New Event
+    <div className="max-w-7xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Events Management</h1>
+          <p className="text-sm text-foreground-muted mt-0.5">{events.length} total events</p>
+        </div>
+        <Link href="/admin/events/create">
+          <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />}>
+            Create Event
+          </Button>
         </Link>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
-        <button 
-          className={`btn ${activeTab === 'approved' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('approved')}
-        >
-          Approved / Active Events ({approvedEvents.length})
-        </button>
-        <button 
-          className={`btn ${activeTab === 'pending' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('pending')}
-        >
-          Pending Community Events ({pendingEvents.length})
-        </button>
-      </div>
-
-      {loadingEvents ? (
-        <p>Loading events...</p>
-      ) : activeTab === 'approved' ? (
-        approvedEvents.length === 0 ? (
-          <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem' }}>
-            <p>No active events found. Create your first one!</p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {approvedEvents.map((event) => (
-              <div key={event.id} className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h3 style={{ margin: '0 0 0.5rem 0' }}>{event.title}</h3>
-                  <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                    <span>{new Date(event.date).toLocaleDateString()}</span>
-                    <span>{event.type}</span>
-                    <span>Seats: {event.registeredCount || 0} / {event.seats}</span>
-                    {event.organizerId && <span style={{ color: 'var(--primary-color)' }}>Community Hosted</span>}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <Link href={`/admin/events/${event.id}/registrations`} className="btn btn-secondary">
-                    View Registrations
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )
+      {isLoading ? (
+        <Card><SkeletonTable rows={6} cols={5} /></Card>
+      ) : isError ? (
+        <ErrorState onRetry={refetch} />
+      ) : events.length === 0 ? (
+        <EmptyState icon={<Calendar className="h-8 w-8" />} title="No events found" description="Create your first event." action={{ label: 'Create Event', onClick: () => {} }} />
       ) : (
-        pendingEvents.length === 0 ? (
-          <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem' }}>
-            <p>No pending event submissions.</p>
+        <Card padding="none">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-hover">
+                  {['Title', 'Date', 'Type', 'Price', 'Seats', 'Status', 'Actions'].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {events.map((event: any, i: number) => (
+                  <motion.tr
+                    key={event.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="hover:bg-surface-hover transition-colors"
+                  >
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="font-medium text-foreground truncate max-w-[200px]">{event.title}</p>
+                        {event.speakerName && <p className="text-xs text-foreground-muted">{event.speakerName}</p>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-foreground-secondary whitespace-nowrap">{formatDate(event.date)}</td>
+                    <td className="px-4 py-3"><Badge variant="default">{event.eventType || '—'}</Badge></td>
+                    <td className="px-4 py-3 text-foreground-secondary">{event.price ? formatCurrency(event.price) : 'Free'}</td>
+                    <td className="px-4 py-3 text-foreground-secondary">
+                      {event.seatsAvailable ? `${event.seatsBooked || 0}/${event.seatsAvailable}` : '∞'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={event.status === 'Approved' ? 'success' : event.status === 'Rejected' ? 'danger' : 'warning'} dot>
+                        {event.status || 'Pending'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {event.status !== 'Approved' && (
+                          <Button
+                            variant="secondary"
+                            size="xs"
+                            isLoading={approveMutation.isPending}
+                            onClick={() => approveMutation.mutate(event.id)}
+                            leftIcon={<CheckCircle className="h-3.5 w-3.5" />}
+                          >
+                            Approve
+                          </Button>
+                        )}
+                        <Link href={`/admin/events/${event.id}/registrations`}>
+                          <Button variant="ghost" size="xs" leftIcon={<Users className="h-3.5 w-3.5" />}>
+                            Registrations
+                          </Button>
+                        </Link>
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {pendingEvents.map((event) => (
-              <div key={event.id} className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ margin: '0 0 0.5rem 0' }}>{event.title}</h3>
-                  <p style={{ margin: '0 0 1rem 0', color: 'var(--text-muted)' }}>{event.description}</p>
-                  <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                    <span>{new Date(event.date).toLocaleDateString()}</span>
-                    <span>{event.type}</span>
-                    <span>Requested Seats: {event.seats}</span>
-                    <span>Submitted by: {event.speaker}</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  <button onClick={() => handleStatusUpdate(event.id, 'Approve')} className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-                    Approve
-                  </button>
-                  <button onClick={() => handleStatusUpdate(event.id, 'Reject')} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )
+        </Card>
       )}
     </div>
   );

@@ -4,6 +4,9 @@ import Image from "next/image";
 import { useState } from "react";
 import RegisterModal from "./RegisterModal";
 import { Event } from "@/types";
+import { Card } from '@/components/ui/Card';
+import { MapPin, Clock } from "lucide-react";
+import Link from "next/link";
 
 interface EventCardProps {
   event: Event;
@@ -29,7 +32,7 @@ function isPastDeadline(registrationDeadline?: string | null) {
 
 export default function EventCard({ event, userRegisteredIds = [], onRegistered }: EventCardProps) {
   const [showModal, setShowModal] = useState(false);
-  const { day, month, year, time } = formatDate(event.date);
+  const { day, month, time } = formatDate(event.date);
   const isRegistered = userRegisteredIds.includes(event.id);
   const closed = isPastDeadline(event.registrationDeadline);
   const noSeats = event.seatsAvailable !== null && event.seatsAvailable !== undefined && (event.seatsBooked ?? 0) >= event.seatsAvailable;
@@ -39,59 +42,66 @@ export default function EventCard({ event, userRegisteredIds = [], onRegistered 
 
   return (
     <>
-      <div className="event-card">
+      <Card className="flex flex-col h-full group p-0 overflow-hidden">
         {/* Poster */}
-        <div className="card-poster">
+        <Link href={`/events/${event.id}`} className="block relative w-full h-48 bg-gradient-to-br from-indigo-900 to-slate-900 overflow-hidden">
           {event.posterUrl ? (
             <Image
               src={event.posterUrl}
               alt={event.title}
               fill
-              sizes="(max-width: 768px) 100vw, 400px"
-              className="poster-img"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
-            <div className="poster-placeholder">
-              <span>{event.title.charAt(0)}</span>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-6xl font-bold text-white/10 uppercase">{event.title.charAt(0)}</span>
             </div>
           )}
 
           {/* Date badge */}
-          <div className="date-badge">
-            <span className="date-day">{String(day).padStart(2, "0")}</span>
-            <span className="date-monthyear">{month} {year}</span>
+          <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md text-white rounded-xl px-3 py-2 flex flex-col items-center border border-white/10 shadow-lg">
+            <span className="text-xl font-bold leading-none">{String(day).padStart(2, "0")}</span>
+            <span className="text-xs font-semibold text-emerald-400 mt-1">{month}</span>
           </div>
 
           {/* Free / Paid badge */}
-          <div className={`type-badge ${isFree ? "free" : isPremiumOnly ? "premium" : "paid"}`}>
+          <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border shadow-lg ${
+            isFree ? "bg-emerald-500/80 text-white border-emerald-500/50" : 
+            isPremiumOnly ? "bg-violet-500/80 text-white border-violet-500/50" : 
+            "bg-amber-500/80 text-white border-amber-500/50"
+          }`}>
             {isFree ? "Free" : isPremiumOnly ? "Members" : "Paid"}
           </div>
-        </div>
+        </Link>
 
         {/* Body */}
-        <div className="card-body">
-          <h3 className="card-title">{event.title}</h3>
-          <p className="card-desc">{event.description}</p>
+        <div className="p-5 flex flex-col flex-1">
+          <Link href={`/events/${event.id}`}>
+            <h3 className="text-lg font-bold text-white mb-2 line-clamp-2 group-hover:text-emerald-400 transition-colors">{event.title}</h3>
+          </Link>
+          <p className="text-sm text-slate-400 mb-4 line-clamp-2">{event.description}</p>
 
           {/* Meta */}
-          <div className="card-meta">
-            <div className="meta-row">
-              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-              </svg>
-              <span>Time: {time}</span>
+          <div className="flex flex-col gap-2 mt-auto mb-5">
+            <div className="flex items-center gap-2 text-sm text-slate-300">
+              <Clock size={16} className="text-slate-500" />
+              <span>{time}</span>
             </div>
-            <div className="meta-row">
-              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M21 10c0 6-9 13-9 13S3 16 3 10a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
-              </svg>
-              <span>Venue: {event.venue || event.location || "Online"}</span>
+            <div className="flex items-center gap-2 text-sm text-slate-300">
+              <MapPin size={16} className="text-slate-500" />
+              <span className="truncate">{event.venue || event.location || "Online"}</span>
             </div>
           </div>
 
           {/* CTA */}
           <button
-            className={`card-btn ${isRegistered ? "registered" : closed || noSeats ? "closed" : ""}`}
+            className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+              isRegistered 
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 cursor-default"
+                : closed || noSeats
+                ? "bg-slate-500/20 text-slate-400 border border-slate-500/20 cursor-not-allowed"
+                : "bg-white/10 hover:bg-white/20 text-white border border-white/10 hover:border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+            }`}
             onClick={() => !isRegistered && !closed && !noSeats && setShowModal(true)}
             disabled={isRegistered || closed || noSeats}
           >
@@ -104,7 +114,7 @@ export default function EventCard({ event, userRegisteredIds = [], onRegistered 
               : "Register Now"}
           </button>
         </div>
-      </div>
+      </Card>
 
       {showModal && (
         <RegisterModal
@@ -116,146 +126,6 @@ export default function EventCard({ event, userRegisteredIds = [], onRegistered 
           }}
         />
       )}
-
-      <style jsx>{`
-        .event-card {
-          background: #ffffff;
-          border-radius: 10px;
-          overflow: hidden;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-          display: flex;
-          flex-direction: column;
-          transition: box-shadow 0.2s, transform 0.2s;
-        }
-        .event-card:hover {
-          box-shadow: 0 6px 24px rgba(15,31,74,0.13);
-          transform: translateY(-2px);
-        }
-        .card-poster {
-          position: relative;
-          width: 100%;
-          height: 200px;
-          background: #0f1f4a;
-          overflow: hidden;
-        }
-        .poster-img { object-fit: cover; }
-        .poster-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: linear-gradient(135deg, #0f1f4a 0%, #1e3a8a 100%);
-          font-size: 56px;
-          font-weight: 700;
-          color: rgba(255,255,255,0.15);
-          text-transform: uppercase;
-        }
-        .date-badge {
-          position: absolute;
-          bottom: 12px;
-          left: 12px;
-          background: #0f1f4a;
-          color: #fff;
-          border-radius: 8px;
-          padding: 6px 10px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          min-width: 56px;
-          line-height: 1.2;
-        }
-        .date-day {
-          font-size: 18px;
-          font-weight: 700;
-          display: block;
-        }
-        .date-monthyear {
-          font-size: 10px;
-          font-weight: 500;
-          opacity: 0.85;
-        }
-        .type-badge {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          padding: 4px 12px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 600;
-        }
-        .type-badge.free { background: #22c55e; color: #fff; }
-        .type-badge.paid { background: #f59e0b; color: #fff; }
-        .type-badge.premium { background: #8b5cf6; color: #fff; }
-        .card-body {
-          padding: 16px;
-          display: flex;
-          flex-direction: column;
-          flex: 1;
-          gap: 8px;
-        }
-        .card-title {
-          font-size: 15px;
-          font-weight: 700;
-          color: #0f172a;
-          margin: 0;
-          line-height: 1.35;
-        }
-        .card-desc {
-          font-size: 13px;
-          color: #64748b;
-          margin: 0;
-          line-height: 1.5;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .card-meta {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          margin-top: 4px;
-        }
-        .meta-row {
-          display: flex;
-          align-items: flex-start;
-          gap: 6px;
-          font-size: 12px;
-          color: #475569;
-        }
-        .meta-row svg { flex-shrink: 0; margin-top: 1px; }
-        .card-btn {
-          margin-top: auto;
-          padding: 10px;
-          border-radius: 6px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          border: 1.5px solid #0f1f4a;
-          background: transparent;
-          color: #0f1f4a;
-          transition: all 0.18s;
-          text-align: center;
-        }
-        .card-btn:hover:not(:disabled) {
-          background: #0f1f4a;
-          color: #fff;
-        }
-        .card-btn.registered {
-          border-color: #22c55e;
-          color: #16a34a;
-          cursor: default;
-        }
-        .card-btn.closed {
-          border-color: #cbd5e1;
-          color: #94a3b8;
-          cursor: not-allowed;
-        }
-        .card-btn:disabled {
-          cursor: not-allowed;
-        }
-      `}</style>
     </>
   );
 }

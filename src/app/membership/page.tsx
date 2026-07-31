@@ -1,118 +1,196 @@
-"use client";
+'use client';
 
-import { useAuth } from "@/modules/module3/components/AuthContext";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import Script from "next/script";
-import { createRazorpayOrder, verifyRazorpayPayment } from "@/modules/module3/lib/razorpay";
-import toast from "react-hot-toast";
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Card } from '@/components/ui/Card';
+import { Check, Zap, Star, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
+import { formatCurrency } from '@/lib/utils';
+import { useAuth } from '@/providers/AuthProvider';
+import toast from 'react-hot-toast';
+import { paymentsApi } from '@/lib/api';
 
-export default function Membership() {
-  const { user, profile } = useAuth();
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
+const PLANS = [
+  {
+    id: 'free',
+    name: 'Free',
+    price: 0,
+    description: 'Perfect to get started with A.N.X.',
+    badge: null,
+    features: [
+      'Access to community discussions',
+      'Browse events & mentors',
+      'View public projects',
+      'Basic profile',
+    ],
+    cta: 'Current Plan',
+    disabled: true,
+    variant: 'secondary' as const,
+  },
+  {
+    id: 'premium',
+    name: 'Premium',
+    price: 999,
+    period: '/year',
+    description: 'Unlock the full A.N.X experience.',
+    badge: 'Most Popular',
+    features: [
+      'Everything in Free',
+      'Register for paid events at discount',
+      'Book unlimited mentor sessions',
+      'Priority community support',
+      'Exclusive workshops & masterclasses',
+      'Project collaboration hub',
+      'Certificate of membership',
+      'Direct access to hiring partners',
+    ],
+    cta: 'Upgrade to Premium',
+    disabled: false,
+    variant: 'premium' as const,
+  },
+];
 
-  const handleUpgrade = async () => {
-    if (!user) {
-      router.push("/login");
+export default function MembershipPage() {
+  const { user, isAuthenticated } = useAuth();
+
+  const handleUpgrade = async (plan: typeof PLANS[0]) => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in first');
       return;
     }
-    setLoading(true);
+    if (plan.price === 0) return;
 
     try {
-      const order = await createRazorpayOrder(999);
-
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, 
-        amount: order.amount,
-        currency: order.currency,
-        name: "Community Platform",
-        description: "Premium Membership",
-        order_id: order.id,
-        handler: async function (response: any) {
-          try {
-            await verifyRazorpayPayment(response, user.uid, profile?.email, 999, "Premium membership");
-            toast.success("Payment successful! You are now a Premium Member.");
-            router.push("/dashboard");
-          } catch (err: any) {
-            toast.error("Payment verification failed: " + err.message);
-          }
-        },
-        prefill: {
-          name: profile?.fullName || "",
-          email: profile?.email || "",
-        },
-        theme: {
-          color: "#0070f3",
-        },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.on('payment.failed', function (response: any){
-        toast.error("Payment Failed: " + response.error.description);
+      const orderRes = await paymentsApi.createOrder({
+        amount: plan.price * 100,
+        membershipType: 'Premium',
       });
-      rzp.open();
-    } catch (error: any) {
-      toast.error("Error initiating payment: " + error.message);
-    } finally {
-      setLoading(false);
+      const order = orderRes.data;
+
+      if (typeof window !== 'undefined' && (window as any).Razorpay) {
+        const rzp = new (window as any).Razorpay({
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+          amount: order.amount,
+          currency: order.currency || 'INR',
+          name: 'A.N.X Platform',
+          description: 'Premium Membership',
+          order_id: order.id,
+          handler: async (response: any) => {
+            try {
+              await paymentsApi.verify(response);
+              toast.success('🎉 Welcome to Premium!');
+            } catch {
+              toast.error('Payment verification failed');
+            }
+          },
+          prefill: { email: user?.email || '' },
+          theme: { color: '#6366f1' },
+        });
+        rzp.open();
+      } else {
+        toast.error('Payment system not available. Refresh and try again.');
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to initiate payment');
     }
   };
 
   return (
-    <div className="container" style={{ padding: '4rem 0', textAlign: 'center' }}>
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
-      <h1 style={{ marginBottom: '1rem' }}>Upgrade to Premium</h1>
-      <p style={{ fontSize: '1.25rem', marginBottom: '3rem', color: 'var(--text-muted)' }}>
-        Get exclusive access to events, mentorship, and premium resources.
-      </p>
+    <div className="space-y-6 max-w-[1600px] mx-auto w-full pb-10">
+      <div className="flex flex-col items-center text-center mb-10 mt-6">
+        <Badge variant="premium" className="mb-4">
+          <Star className="h-3 w-3 mr-1" /> A.N.X PRO
+        </Badge>
+        <h1 className="text-3xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600 mb-4 tracking-tight">
+          Supercharge your career
+        </h1>
+        <p className="text-gray-400 max-w-2xl text-lg">
+          Join the exclusive community of top builders and access premium mentorship, events, and resources.
+        </p>
+      </div>
 
-      <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-        {/* Free Plan */}
-        <div className="glass-panel" style={{ flex: '1', minWidth: '300px', maxWidth: '400px', textAlign: 'left', display: 'flex', flexDirection: 'column' }}>
-          <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Basic Member</h2>
-          <div style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '2rem' }}>Free</div>
-          
-          <ul style={{ listStyle: 'none', marginBottom: '2rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <li>✓ Access to public events</li>
-            <li>✓ Basic community updates</li>
-            <li>✓ Basic dashboard</li>
-            <li>✓ Public project showcase</li>
-          </ul>
-
-          <button className="btn btn-secondary" disabled style={{ width: '100%' }}>
-            {profile?.membershipType === "Free" ? "Current Plan" : "Included"}
-          </button>
-        </div>
-
-        {/* Premium Plan */}
-        <div className="glass-panel" style={{ flex: '1', minWidth: '300px', maxWidth: '400px', textAlign: 'left', display: 'flex', flexDirection: 'column', border: '1px solid var(--primary-color)' }}>
-          <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: 'var(--primary-color)' }}>Premium Member</h2>
-          <div style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '2rem' }}>₹999<span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 400 }}>/year</span></div>
-          
-          <ul style={{ listStyle: 'none', marginBottom: '2rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <li>✓ <b>All Free benefits</b></li>
-            <li>✓ Event discounts & Priority registration</li>
-            <li>✓ Free/basic mentorship sessions</li>
-            <li>✓ Premium roadmaps</li>
-            <li>✓ Project team opportunities</li>
-            <li>✓ Certificates and recognition</li>
-          </ul>
-
-          {profile?.membershipType === "Premium" && profile.membershipExpiry && (
-            <div style={{ textAlign: 'center', marginBottom: '1rem', color: 'var(--text-muted)' }}>
-              Expires on: {new Date(profile.membershipExpiry).toLocaleDateString()}
-            </div>
-          )}
-          <button 
-            className="btn btn-primary" 
-            onClick={handleUpgrade} 
-            disabled={loading || profile?.membershipType === "Premium"}
-            style={{ width: '100%' }}
+      {/* Plans */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {PLANS.map((plan, i) => (
+          <motion.div
+            key={plan.id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           >
-            {loading ? "Processing..." : profile?.membershipType === "Premium" ? "Current Plan" : "Upgrade Now"}
-          </button>
-        </div>
+            <Card
+              padding="lg"
+              className={`flex flex-col h-full relative ${plan.badge ? 'border-primary ring-1 ring-primary/30' : ''}`}
+            >
+              {plan.badge && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Badge variant="primary" className="shadow-sm">
+                    <Star className="h-3 w-3" />
+                    {plan.badge}
+                  </Badge>
+                </div>
+              )}
+
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-lg font-bold text-white">{plan.name}</h2>
+                  {plan.id === 'premium' && (
+                    <div className="p-1.5 rounded-lg bg-yellow-500/20">
+                      <Zap className="h-4 w-4 text-yellow-400" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-gray-400 text-sm">{plan.description}</p>
+              </div>
+
+              <div className="mb-6">
+                <div className="flex items-end gap-1">
+                  <span className="text-4xl font-bold text-white">
+                    {plan.price === 0 ? 'Free' : formatCurrency(plan.price)}
+                  </span>
+                  {plan.period && (
+                    <span className="text-gray-400 mb-1.5">{plan.period}</span>
+                  )}
+                </div>
+                {plan.price > 0 && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Only {formatCurrency(Math.round(plan.price / 12))}/month
+                  </p>
+                )}
+              </div>
+
+              <ul className="space-y-2.5 mb-8 flex-1">
+                {plan.features.map((feature, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm">
+                    <div className="mt-0.5 rounded-full bg-emerald-500/10 p-0.5 shrink-0">
+                      <Check className="h-3 w-3 text-emerald-400" />
+                    </div>
+                    <span className="text-gray-300">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <Button
+                variant={plan.variant}
+                className="w-full"
+                disabled={plan.disabled}
+                onClick={() => handleUpgrade(plan)}
+                rightIcon={!plan.disabled ? <ArrowRight className="h-4 w-4" /> : undefined}
+              >
+                {plan.cta}
+              </Button>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Guarantee */}
+      <div className="text-center py-4">
+        <p className="text-sm text-foreground-muted">
+          🔒 Secure payment via Razorpay · 30-day money-back guarantee ·{' '}
+          <Link href="/community" className="text-primary hover:underline">Have questions? Ask the community</Link>
+        </p>
       </div>
     </div>
   );

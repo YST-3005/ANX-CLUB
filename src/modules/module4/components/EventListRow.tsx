@@ -4,6 +4,7 @@ import { useState } from "react";
 import RegisterModal from "./RegisterModal";
 import { Event } from "@/types";
 import { useRouter } from "next/navigation";
+import { ArrowRight, Calendar, CheckCircle2 } from "lucide-react";
 
 interface EventListRowProps {
   event: Event;
@@ -32,35 +33,44 @@ export default function EventListRow({ event, index, userRegisteredIds = [], onR
 
   return (
     <>
-      <tr className="list-row">
-        <td className="td-sno">{index}</td>
-        <td className="td-name">{event.title}</td>
-        <td className="td-desc">
-          {event.description.length > 45 ? (
-            <>
-              {event.description.slice(0, 45)}
-              <span className="read-more">...Read More</span>
-            </>
-          ) : (
-            event.description
-          )}
+      <tr className="border-b border-white/5 hover:bg-white/5 transition-colors group">
+        <td className="p-4 text-sm text-slate-500 font-medium">{index}</td>
+        <td className="p-4">
+          <div className="font-semibold text-white group-hover:text-emerald-400 transition-colors cursor-pointer" onClick={() => router.push(`/events/${event.id}`)}>
+            {event.title}
+          </div>
         </td>
-        <td className="td-date">{formatDate(event.date)}</td>
-        <td className="td-attend">
+        <td className="p-4 text-sm text-slate-400 hidden md:table-cell max-w-xs truncate">
+          {event.description}
+        </td>
+        <td className="p-4 text-sm text-slate-300">
+          <div className="flex items-center gap-2">
+            <Calendar size={14} className="text-emerald-400" />
+            {formatDate(event.date)}
+          </div>
+        </td>
+        <td className="p-4">
           <button
-            className={`attend-btn ${isRegistered ? "registered" : canRegister ? "open" : "closed"}`}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+              isRegistered 
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 cursor-default" 
+                : canRegister 
+                  ? "bg-white/10 hover:bg-white/20 text-white border border-white/10" 
+                  : "bg-slate-500/20 text-slate-400 border border-slate-500/20 cursor-not-allowed"
+            }`}
             onClick={() => canRegister && setShowModal(true)}
             disabled={!canRegister}
           >
-            {isRegistered ? "✓ Registered" : "Registrations Closed"}
+            {isRegistered ? <><CheckCircle2 size={12} /> Registered</> : canRegister ? "Register" : "Closed"}
           </button>
         </td>
-        <td className="td-detail">
-          <button className="detail-btn" title="View Details" onClick={() => router.push(`/events/${event.id}`)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#fff" strokeWidth="2"/>
-              <circle cx="12" cy="12" r="3" stroke="#f59e0b" strokeWidth="2"/>
-            </svg>
+        <td className="p-4 text-right">
+          <button 
+            className="w-8 h-8 rounded-full bg-white/5 hover:bg-emerald-500 text-slate-400 hover:text-white flex items-center justify-center transition-colors border border-white/10 hover:border-emerald-400" 
+            title="View Details" 
+            onClick={() => router.push(`/events/${event.id}`)}
+          >
+            <ArrowRight size={14} />
           </button>
         </td>
       </tr>
@@ -75,68 +85,6 @@ export default function EventListRow({ event, index, userRegisteredIds = [], onR
           }}
         />
       )}
-
-      <style jsx>{`
-        .list-row {
-          border-bottom: 1px solid #f1f5f9;
-          transition: background 0.15s;
-        }
-        .list-row:hover { background: #f8fafc; }
-        .list-row td {
-          padding: 14px 16px;
-          font-size: 13.5px;
-          color: #334155;
-          vertical-align: middle;
-        }
-        .td-sno { color: #64748b; font-size: 13px; }
-        .td-name { font-weight: 600; color: #0f172a; max-width: 180px; }
-        .td-desc { color: #64748b; max-width: 240px; }
-        .read-more { color: #2563eb; cursor: pointer; font-size: 12px; }
-        .td-date { white-space: nowrap; color: #475569; }
-        .attend-btn {
-          padding: 7px 16px;
-          border-radius: 6px;
-          font-size: 12.5px;
-          font-weight: 500;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: all 0.18s;
-        }
-        .attend-btn.closed {
-          border: 1.5px solid #cbd5e1;
-          background: #fff;
-          color: #64748b;
-          cursor: default;
-        }
-        .attend-btn.open {
-          border: 1.5px solid #0f1f4a;
-          background: #fff;
-          color: #0f1f4a;
-        }
-        .attend-btn.open:hover {
-          background: #0f1f4a;
-          color: #fff;
-        }
-        .attend-btn.registered {
-          border: 1.5px solid #22c55e;
-          background: #f0fdf4;
-          color: #16a34a;
-          cursor: default;
-        }
-        .detail-btn {
-          width: 36px;
-          height: 36px;
-          border-radius: 6px;
-          background: #0f1f4a;
-          border: none;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 0.18s;
-        }
-        .detail-btn:hover { background: #1e3a8a; }
-      `}</style>
     </>
   );
 }

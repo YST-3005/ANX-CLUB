@@ -1,188 +1,199 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@/modules/module3/components/AuthContext";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
-import EventCard from "@/modules/module4/components/EventCard";
-import EventListRow from "@/modules/module4/components/EventListRow";
-import Link from "next/link";
-import { Event } from "@/types";
+import { useQuery } from '@tanstack/react-query';
+import { eventsApi } from '@/lib/api';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { SkeletonCard } from '@/components/ui/Skeleton';
+import { EmptyState, ErrorState } from '@/components/ui/EmptyState';
+import { formatDate, formatCurrency, isUpcoming } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import { Calendar, MapPin, Users, Search, Filter, ArrowRight, Clock } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
+
+const EVENT_TYPES = ['All', 'Workshop', 'Seminar', 'Hackathon', 'Webinar', 'Networking'];
+const FILTER_OPTIONS = ['All', 'Upcoming', 'Past', 'Free', 'Paid'];
 
 export default function EventsPage() {
-  const { user, profile, loading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<"grid" | "list" | "applied">("grid");
-  const [events, setEvents] = useState<Event[]>([]);
-  const [appliedEvents, setAppliedEvents] = useState<Event[]>([]);
-  const [userRegisteredIds, setUserRegisteredIds] = useState<string[]>([]);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [selectedType, setSelectedType] = useState('All');
+  const [selectedFilter, setSelectedFilter] = useState('All');
 
-  const fetchEvents = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/v1/events");
-      const data = await res.json();
-      if (data.success) {
-        setEvents(data.data);
-      } else if (Array.isArray(data)) {
-        setEvents(data);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['events'],
+    queryFn: async () => {
+      const res = await eventsApi.list();
+      const raw = res.data;
+      return Array.isArray(raw) ? raw : raw?.data || [];
+    },
+    staleTime: 2 * 60 * 1000,
+  });
 
-  const fetchUserRegistrations = useCallback(async () => {
-    if (!user) return;
-    try {
-      const snap = await getDocs(
-        query(collection(db, "eventRegistrations"), where("userId", "==", user.uid))
-      );
-      const ids = snap.docs.map((d) => d.data().eventId as string);
-      setUserRegisteredIds(ids);
-    } catch (err) {
-      console.error(err);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
-
-  useEffect(() => {
-    if (user) {
-      fetchUserRegistrations();
-    }
-  }, [user, fetchUserRegistrations]);
-
-  useEffect(() => {
-    setAppliedEvents(events.filter((e) => userRegisteredIds.includes(e.id)));
-  }, [events, userRegisteredIds]);
-
-  const handleRegistered = () => {
-    fetchEvents();
-    fetchUserRegistrations();
-  };
-
-  const filterEvents = (list: Event[]) =>
-    list.filter(
-      (e) =>
-        e.title.toLowerCase().includes(search.toLowerCase()) ||
-        e.description.toLowerCase().includes(search.toLowerCase())
-    );
-
-  const displayEvents = filterEvents(activeTab === "applied" ? appliedEvents : events);
+  const events = (data || []).filter((event: any) => {
+    const matchSearch = !search || event.title?.toLowerCase().includes(search.toLowerCase()) || event.speakerName?.toLowerCase().includes(search.toLowerCase());
+    const matchType = selectedType === 'All' || event.eventType === selectedType;
+    const up = isUpcoming(event.date);
+    const matchFilter =
+      selectedFilter === 'All' ||
+      (selectedFilter === 'Upcoming' && up) ||
+      (selectedFilter === 'Past' && !up) ||
+      (selectedFilter === 'Free' && (!event.price || event.price === 0)) ||
+      (selectedFilter === 'Paid' && event.price > 0);
+    return matchSearch && matchType && matchFilter;
+  });
 
   return (
-    <div className="container" style={{ padding: "4rem 0" }}>
-      {/* Page Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+    <div className="space-y-6 max-w-[1600px] mx-auto w-full pb-10">
+      <div className="flex items-center justify-between bg-black/40 border border-white/10 p-6 rounded-2xl backdrop-blur-xl">
         <div>
-          <h1>Upcoming Events</h1>
-          <p style={{ color: "var(--text-muted)", margin: 0 }}>Join discussions, masterclasses, and networking events.</p>
-        </div>
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          {profile?.role === "Admin" && (
-            <Link href="/events/create" className="btn btn-primary">
-              Host an Event
-            </Link>
-          )}
+          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 flex items-center gap-2">
+            <Calendar className="h-6 w-6 text-cyan-400" /> Events
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">Discover workshops, meetups, and conferences</p>
         </div>
       </div>
 
-      {/* Search and Tabs Panel */}
-      <div className="glass-panel" style={{ padding: "1.5rem", marginBottom: "2rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-          {/* Tabs */}
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            {[
-              { key: "grid", label: "Grid View" },
-              { key: "list", label: "List View" },
-              { key: "applied", label: "My Registrations" },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                className={`btn ${activeTab === tab.key ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => setActiveTab(tab.key as any)}
-                style={{ padding: "0.5rem 1rem", fontSize: "0.875rem" }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Search bar */}
-          <div style={{ position: "relative", width: "100%", maxWidth: "300px" }}>
-            <input
-              type="text"
-              placeholder="Search events..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="form-input"
-              style={{ paddingRight: "2.5rem" }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Content Area */}
-      {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "2rem" }}>
-          {[1, 2, 3].map((n) => (
-            <div key={n} className="glass-panel" style={{ display: "flex", flexDirection: "column", height: "350px" }}>
-              <div className="skeleton" style={{ width: "100%", height: "200px", marginBottom: "1rem" }}></div>
-              <div className="skeleton" style={{ width: "80%", height: "1.5rem", marginBottom: "0.5rem" }}></div>
-              <div className="skeleton" style={{ width: "60%", height: "1rem" }}></div>
-            </div>
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Input
+          placeholder="Search events or speakers..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          leftIcon={<Search className="h-4 w-4" />}
+          containerClassName="flex-1"
+        />
+        <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
+          {FILTER_OPTIONS.map((f) => (
+            <button
+              key={f}
+              onClick={() => setSelectedFilter(f)}
+              className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold border transition-colors ${
+                selectedFilter === f
+                  ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50 shadow-[0_0_15px_rgba(34,211,238,0.2)]'
+                  : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/5 hover:border-white/20'
+              }`}
+            >
+              {f}
+            </button>
           ))}
         </div>
-      ) : displayEvents.length === 0 ? (
-        <div className="glass-panel" style={{ textAlign: "center", padding: "4rem 2rem" }}>
-          <p style={{ fontSize: "1.125rem", color: "var(--text-muted)", margin: 0 }}>
-            {activeTab === "applied" ? "You haven't registered for any events yet." : "No upcoming events found matching your query."}
-          </p>
+      </div>
+
+      {/* Type tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {EVENT_TYPES.map((type) => (
+          <button
+            key={type}
+            onClick={() => setSelectedType(type)}
+            className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-colors border ${
+              selectedType === type
+                ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50 shadow-[0_0_15px_rgba(34,211,238,0.2)]'
+                : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/5 hover:border-white/20'
+            }`}
+          >
+            {type}
+          </button>
+        ))}
+      </div>
+
+      {/* Event Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
-      ) : activeTab === "list" ? (
-        <div className="glass-panel" style={{ padding: 0, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-            <thead>
-              <tr style={{ borderBottom: "2px solid var(--border-color)", background: "rgba(255,255,255,0.02)" }}>
-                <th style={{ padding: "1rem 1.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>S.No</th>
-                <th style={{ padding: "1rem 1.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>Name</th>
-                <th style={{ padding: "1rem 1.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>Description</th>
-                <th style={{ padding: "1rem 1.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>Date</th>
-                <th style={{ padding: "1rem 1.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>Attend</th>
-                <th style={{ padding: "1rem 1.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>Detail</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayEvents.map((event, i) => (
-                <EventListRow
-                  key={event.id}
-                  event={event}
-                  index={i + 1}
-                  userRegisteredIds={userRegisteredIds}
-                  onRegistered={handleRegistered}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+      ) : isError ? (
+        <ErrorState onRetry={refetch} />
+      ) : events.length === 0 ? (
+        <EmptyState
+          icon={<Calendar className="h-8 w-8" />}
+          title="No events found"
+          description="Try adjusting your filters or check back later for new events."
+          action={{ label: 'Clear filters', onClick: () => { setSearch(''); setSelectedType('All'); setSelectedFilter('All'); } }}
+        />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "2rem" }}>
-          {displayEvents.map((event) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              userRegisteredIds={userRegisteredIds}
-              onRegistered={handleRegistered}
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {events.map((event: any, i: number) => (
+            <EventCard key={event.id} event={event} index={i} />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+function EventCard({ event, index }: { event: any; index: number }) {
+  const upcoming = isUpcoming(event.date);
+  const isFree = !event.price || event.price === 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <Card hover padding="none" className="flex flex-col overflow-hidden h-full group">
+        {/* Color band */}
+        <div className="h-1.5 bg-gradient-to-r from-cyan-400 to-blue-500 group-hover:from-cyan-300 group-hover:to-blue-400 transition-all shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
+
+        <div className="flex flex-col flex-1 p-5 bg-black/20">
+          {/* Badges */}
+          <div className="flex items-center gap-2 mb-3">
+            <Badge variant={upcoming ? 'success' : 'muted'} dot>
+              {upcoming ? 'Upcoming' : 'Past'}
+            </Badge>
+            <Badge variant="default">{event.eventType || 'Event'}</Badge>
+            <Badge variant={isFree ? 'success' : 'warning'} className="ml-auto">
+              {isFree ? 'Free' : formatCurrency(event.price)}
+            </Badge>
+          </div>
+
+          {/* Title */}
+          <h3 className="text-sm font-semibold text-foreground mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+            {event.title}
+          </h3>
+
+          {/* Description */}
+          {event.description && (
+            <p className="text-xs text-foreground-muted line-clamp-2 mb-4">
+              {event.description}
+            </p>
+          )}
+
+          <div className="mt-auto space-y-2">
+            {/* Meta */}
+            <div className="flex items-center gap-1.5 text-xs text-foreground-muted">
+              <Calendar className="h-3.5 w-3.5 shrink-0" />
+              {formatDate(event.date)}
+              {event.date && (
+                <>
+                  <Clock className="h-3.5 w-3.5 shrink-0 ml-1" />
+                  {new Date(event.date).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-foreground-muted">
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              {event.venue || 'Online'}
+            </div>
+            {(event.seatsAvailable !== undefined && event.seatsAvailable !== null) && (
+              <div className="flex items-center gap-1.5 text-xs text-foreground-muted">
+                <Users className="h-3.5 w-3.5 shrink-0" />
+                {event.seatsBooked || 0} / {event.seatsAvailable} seats
+              </div>
+            )}
+          </div>
+
+          {/* CTA */}
+          <Link href={`/events/${event.id}`} className="mt-4 block">
+            <Button variant={upcoming ? 'primary' : 'secondary'} size="sm" className="w-full" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>
+              {upcoming ? 'View & Register' : 'View Details'}
+            </Button>
+          </Link>
+        </div>
+      </Card>
+    </motion.div>
   );
 }

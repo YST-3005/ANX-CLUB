@@ -2,208 +2,215 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   DESIGN TOKENS — LIGHT MODE
+============================================ */
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  
-  --bg-color: #f8fafc;
-  --surface-color: #ffffff;
-  --surface-hover: #f1f5f9;
-  --surface-border: #e2e8f0;
-  
-  --primary-color: #3b82f6;
-  --primary-hover: #1d4ed8;
-  
-  --secondary-color: #6366f1;
-  --secondary-hover: #4f46e5;
-  
-  --accent-color: #f43f5e;
-  --danger-color: #ef4444;
-  --success-color: #10b981;
-  
-  --text-main: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  
-  --border-color: rgba(15, 23, 42, 0.08);
-  --glass-bg: rgba(255, 255, 255, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.4);
-  
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
-  
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  /* Cyberpunk / Deep Space (Defaulting everything to Dark) */
+  --color-bg: #0a0b10; /* Extremely deep blue-black */
+  --color-surface: rgba(16, 18, 27, 0.7); /* rich dark blue surface */
+  --color-surface-hover: rgba(26, 29, 41, 0.9);
+  --color-surface-raised: rgba(30, 33, 48, 1);
+
+  /* Neon borders */
+  --color-border: rgba(139, 92, 246, 0.15); /* faint purple border */
+  --color-border-strong: rgba(139, 92, 246, 0.4);
+
+  --color-fg: #f8fafc;
+  --color-fg-secondary: #94a3b8;
+  --color-fg-muted: #64748b;
+
+  /* Neon Primary */
+  --color-primary: #8b5cf6; /* violet-500 */
+  --color-primary-hover: #a78bfa; 
+  --color-primary-subtle: rgba(139, 92, 246, 0.2);
+  --color-primary-fg: #ffffff;
+
+  /* Bright Neon semantics */
+  --color-success: #10b981; 
+  --color-success-subtle: rgba(16, 185, 129, 0.2);
+  --color-warning: #f59e0b; 
+  --color-warning-subtle: rgba(245, 158, 11, 0.2);
+  --color-danger: #ef4444; 
+  --color-danger-subtle: rgba(239, 68, 68, 0.2);
+
+  /* Sidebar */
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 80px;
+
+  /* Misc */
+  --color-overlay: rgba(10, 11, 16, 0.9);
+  --color-skeleton: rgba(139, 92, 246, 0.15);
+  --color-skeleton-wave: rgba(139, 92, 246, 0.3);
 }
 
+/* ============================================
+   DESIGN TOKENS — DARK MODE
+============================================ */
 .dark {
-  --background: #07090e;
-  --foreground: #f8fafc;
-  
-  --bg-color: #07090e;
-  --surface-color: #0d111c;
-  --surface-hover: #161e2e;
-  --surface-border: #1e293b;
-  
-  --primary-color: #3b82f6;
-  --primary-hover: #60a5fa;
-  
-  --secondary-color: #6366f1;
-  --secondary-hover: #818cf8;
-  
-  --accent-color: #f43f5e;
-  --danger-color: #f87171;
-  --success-color: #34d399;
-  
-  --text-main: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  
-  --border-color: rgba(255, 255, 255, 0.08);
-  --glass-bg: rgba(13, 17, 28, 0.65);
-  --glass-border: rgba(255, 255, 255, 0.06);
+  /* Same as root since we are forcing dark mode */
+}
+
+
+
+/* ============================================
+   BASE RESETS
+============================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 body {
-  font-family: var(--font-sans);
-  background-color: var(--bg-color);
-  color: var(--text-main);
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-outfit), 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
   min-height: 100vh;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.glass-panel {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.12);
-  border-radius: var(--radius-lg);
-  padding: 2rem;
+/* Selection */
+::selection {
+  background-color: var(--color-primary-subtle);
+  color: var(--color-primary);
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.625rem 1.25rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease-in-out;
-  cursor: pointer;
-  border: none;
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-fg-muted);
 }
 
-.btn-primary {
-  background-color: var(--primary-color);
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-}
-
-.btn-primary:hover {
-  background-color: var(--primary-hover);
-  transform: translateY(-1px);
-}
-
-.btn-secondary {
-  background-color: var(--surface-color);
-  color: var(--text-main);
-  border: 1px solid var(--surface-border);
-}
-
-.btn-secondary:hover {
-  background-color: var(--surface-hover);
-}
-
-.btn-outline {
-  background-color: transparent;
-  color: var(--primary-color);
-  border: 1.5px solid var(--primary-color);
-}
-
-.btn-outline:hover {
-  background-color: var(--primary-color);
-  color: #ffffff;
-}
-
-.btn-full {
-  width: 100%;
-}
-
-.form-group {
-  margin-bottom: 1.25rem;
-}
-
-.form-label {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 0.375rem;
-}
-
-.form-input {
-  width: 100%;
-  padding: 0.625rem 0.875rem;
-  font-size: 0.875rem;
-  background-color: var(--surface-color);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
-  color: var(--text-main);
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.form-input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 9999px;
-  line-height: 1;
-}
-
-.badge-admin { background-color: rgba(239, 68, 68, 0.15); color: #f87171; }
-.badge-premium { background-color: rgba(139, 92, 246, 0.15); color: #c084fc; }
-.badge-mentor { background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-.badge-member { background-color: rgba(16, 185, 129, 0.15); color: #34d399; }
-.badge-visitor { background-color: rgba(100, 116, 139, 0.15); color: #94a3b8; }
-
-.auth-container {
-  display: flex;
-  min-height: 80vh;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1rem;
-}
-
-.auth-box {
-  width: 100%;
-  max-width: 420px;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .5; }
-}
+/* ============================================
+   SKELETON LOADING
+============================================ */
 .skeleton {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  background-color: var(--surface-hover);
-  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--color-skeleton) 25%,
+    var(--color-skeleton-wave) 50%,
+    var(--color-skeleton) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.375rem;
+}
+
+/* ============================================
+   GLASS MORPHISM
+============================================ */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .glass {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ============================================
+   FOCUS STYLES
+============================================ */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================
+   OTP INPUT
+============================================ */
+.otp-input {
+  width: 48px;
+  height: 52px;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: 0.5rem;
+  color: var(--color-fg);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+}
+
+.otp-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-subtle);
+}
+
+.otp-input.filled {
+  border-color: var(--color-primary);
+  background: var(--color-primary-subtle);
+}
+
+/* ============================================
+   ANIMATIONS
+============================================ */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+.animate-fade-in-scale { animation: fadeInScale 0.25s ease-out forwards; }
+.animate-slide-in-left { animation: slideInLeft 0.3s ease-out forwards; }
+
+/* ============================================
+   LAYOUT
+============================================ */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+/* ============================================
+   TYPOGRAPHY HELPERS
+============================================ */
+.text-balance { text-wrap: balance; }
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-fg) 0%, var(--color-fg-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
