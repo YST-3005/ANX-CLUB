@@ -31,69 +31,80 @@ export async function POST(request: NextRequest) {
     });
 
     if (!isValid) {
-      return NextResponse.json(
-        { success: false, message: "Payment verification failed. Signature mismatch." },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: "Signature verification failed" }, { status: 400 });
     }
 
-    const eventDoc = await adminDb.collection("events").doc(eventId).get();
-    if (!eventDoc.exists) {
-      return NextResponse.json({ success: false, message: "Event not found." }, { status: 404 });
-    }
-    const event = eventDoc.data()!;
+    // Execute atomic transaction for seat booking and registration creation
+    const result = await adminDb.runTransaction(async (transaction) => {
+      const eventRef = adminDb.collection("events").doc(eventId);
+      const paymentRef = adminDb.collection("payments").doc(razorpay_order_id);
+      const regQuery = adminDb.collection("eventRegistrations")
+        .where("orderId", "==", razorpay_order_id)
+        .limit(1);
 
-    const paymentDoc = await adminDb.collection("payments").doc(razorpay_order_id).get();
-    if (!paymentDoc.exists) {
-      return NextResponse.json({ success: false, message: "Payment record not found." }, { status: 404 });
-    }
-    const payment = paymentDoc.data()!;
+      const [eventDoc, paymentDoc, regSnap] = await Promise.all([
+        transaction.get(eventRef),
+        transaction.get(paymentRef),
+        transaction.get(regQuery),
+      ]);
 
-    const userDoc = await adminDb.collection("users").doc(userId).get();
-    const user = userDoc.data() || {};
+      if (!eventDoc.exists) throw new Error("EVENT_NOT_FOUND");
+      if (!paymentDoc.exists) throw new Error("PAYMENT_NOT_FOUND");
 
-    const batch = adminDb.batch();
+      // Idempotency check: prevent duplicate registration processing
+      if (!regSnap.empty) {
+        return { registrationId: regSnap.docs[0].id, idempotent: true };
+      }
 
-    const regRef = adminDb.collection("eventRegistrations").doc();
-    batch.set(regRef, {
-      eventId,
-      eventTitle: event.title,
-      userId,
-      name: name || user.fullName || "User",
-      email: email || user.email || "",
-      phone: phone || user.phone || "",
-      membershipType: user.membershipType || "free",
-      paymentStatus: "paid",
-      paymentId: razorpay_payment_id,
-      orderId: razorpay_order_id,
-      amount: payment.amount,
-      registeredAt: admin.firestore.FieldValue.serverTimestamp(),
-      status: "confirmed",
+      const eventData = eventDoc.data()!;
+      const seatsAvailable = eventData.seatsAvailable;
+      const seatsBooked = eventData.seatsBooked || 0;
+
+      if (seatsAvailable !== null && seatsAvailable !== undefined && seatsBooked >= seatsAvailable) {
+        throw new Error("EVENT_SOLD_OUT");
+      }
+
+      const regRef = adminDb.collection("eventRegistrations").doc();
+      const registrationData = {
+        eventId,
+        eventTitle: eventData.title,
+        userId,
+        name: name || "Attendee",
+        email: email || "",
+        phone: phone || "",
+        paymentStatus: "paid",
+        paymentId: razorpay_payment_id,
+        orderId: razorpay_order_id,
+        amount: paymentDoc.data()!.amount,
+        registeredAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: "confirmed",
+      };
+
+      transaction.set(regRef, registrationData);
+      transaction.update(paymentRef, {
+        status: "paid",
+        paymentId: razorpay_payment_id,
+        verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      transaction.update(eventRef, {
+        seatsBooked: admin.firestore.FieldValue.increment(1),
+        registeredCount: admin.firestore.FieldValue.increment(1),
+      });
+
+      return { registrationId: regRef.id, idempotent: false };
     });
-
-    batch.update(adminDb.collection("payments").doc(razorpay_order_id), {
-      status: "paid",
-      paymentId: razorpay_payment_id,
-      verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    const updateFields: any = {};
-    updateFields.seatsBooked = admin.firestore.FieldValue.increment(1);
-    updateFields.registeredCount = admin.firestore.FieldValue.increment(1);
-    batch.update(adminDb.collection("events").doc(eventId), updateFields);
-
-    await batch.commit();
 
     return NextResponse.json({
       success: true,
       message: "Payment verified and registration confirmed!",
-      data: { registrationId: regRef.id },
+      data: result,
     });
   } catch (error: any) {
     console.error("[POST /api/v1/payments/verify]", error);
+    const status = error.message === "EVENT_SOLD_OUT" ? 409 : 500;
     return NextResponse.json(
-      { success: false, message: "Verification failed.", error: error.message },
-      { status: 500 }
+      { success: false, message: error.message || "Verification failed." },
+      { status }
     );
   }
 }

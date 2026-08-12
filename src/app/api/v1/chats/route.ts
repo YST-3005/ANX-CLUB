@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { adminDb } from '@/lib/firebase/admin';
 
 export async function POST(request: Request) {
   try {
@@ -15,11 +14,10 @@ export async function POST(request: Request) {
     const participants = [currentEmail, targetEmail].sort();
 
     // Check if chat exists
-    const q = query(
-      collection(db, 'chats'), 
-      where('participants', '==', participants)
-    );
-    const snapshot = await getDocs(q);
+    const snapshot = await adminDb
+      .collection('chats')
+      .where('participants', '==', participants)
+      .get();
 
     if (!snapshot.empty) {
       // Chat exists, return existing ID
@@ -38,7 +36,7 @@ export async function POST(request: Request) {
       lastMessage: ""
     };
 
-    const docRef = await addDoc(collection(db, 'chats'), chatData);
+    const docRef = await adminDb.collection('chats').add(chatData);
 
     return NextResponse.json({ chatId: docRef.id });
 

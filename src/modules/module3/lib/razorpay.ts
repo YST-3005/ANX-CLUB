@@ -1,5 +1,5 @@
 export const createRazorpayOrder = async (amount: number, currency: string = "INR", extraData: any = {}) => {
-  const response = await fetch('/api/v1/razorpay/order', {
+  const response = await fetch('/api/v1/payments/create-order', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -22,7 +22,7 @@ export const verifyRazorpayPayment = async (
   amount?: number,
   paymentType?: string
 ) => {
-  const response = await fetch('/api/v1/razorpay/verify', {
+  const response = await fetch('/api/v1/payments/verify', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

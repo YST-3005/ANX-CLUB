@@ -9,43 +9,59 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const typeFilter = searchParams.get("type");
     const onlyUpcoming = searchParams.get("upcoming") === "true";
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
+    const lastId = searchParams.get("lastId");
 
-    let queryRef: admin.firestore.Query = adminDb.collection("events");
+    let queryRef: admin.firestore.Query = adminDb.collection("events")
+      .where("isActive", "==", true);
 
-    if (typeFilter) {
+    if (typeFilter && typeFilter !== "All") {
       queryRef = queryRef.where("eventType", "==", typeFilter);
     }
 
-    const snapshot = await queryRef.get();
-    let events = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as any[];
-
-    // In-memory filter for upcoming events and active/approved status
     if (onlyUpcoming) {
       const nowStr = new Date().toISOString();
-      events = events.filter((e) => e.date >= nowStr);
+      queryRef = queryRef.where("date", ">=", nowStr);
     }
 
-    // Retain only active/approved events
-    events = events.filter((e) => e.isActive !== false && (!e.status || e.status === "Approved"));
+    queryRef = queryRef.orderBy("date", "desc").limit(limit);
 
-    // Sort by date descending
-    events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    if (lastId) {
+      const lastDoc = await adminDb.collection("events").doc(lastId).get();
+      if (lastDoc.exists) {
+        queryRef = queryRef.startAfter(lastDoc);
+      }
+    }
+
+    const snapshot = await queryRef.get();
+    const events = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
 
     // Backwards compatibility with Module 3 (which expects direct array response)
     const isModule3Request = request.headers.get("referer")?.includes("/") || 
                              request.url.includes("module3");
+    
+    let response: NextResponse;
     if (isModule3Request) {
-      return NextResponse.json(events, { status: 200 });
+      response = NextResponse.json(events, { status: 200 });
+    } else {
+      response = NextResponse.json(
+        { success: true, data: events, count: events.length },
+        { status: 200 }
+      );
     }
 
-    return NextResponse.json({ success: true, data: events }, { status: 200 });
+    // Cache static/semi-static events payload on CDN edge for 60 seconds
+    response.headers.set(
+      "Cache-Control",
+      "public, s-maxage=60, stale-while-revalidate=300"
+    );
+
+    return response;
   } catch (error: any) {
     console.error("[GET /api/v1/events]", error);
-    
-    // Fallback direct array in case of build/module3 compatibility issues
     return NextResponse.json(
       { success: false, message: "Failed to fetch events.", error: error.message },
       { status: 500 }

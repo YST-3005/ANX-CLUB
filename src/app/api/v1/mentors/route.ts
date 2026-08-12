@@ -1,19 +1,27 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { NextRequest, NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const q = query(collection(db, 'mentors'), orderBy('createdAt', 'desc'));
-    const mentorsSnapshot = await getDocs(q);
-    const mentors = mentorsSnapshot.docs.map(doc => ({
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
+
+    const snapshot = await adminDb
+      .collection('mentors')
+      .orderBy('createdAt', 'desc')
+      .limit(limit)
+      .get();
+
+    const mentors = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
 
-    return NextResponse.json(mentors);
+    const response = NextResponse.json(mentors, { status: 200 });
+    response.headers.set("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
+    return response;
   } catch (error: any) {
     console.error('Error fetching mentors:', error);
     return NextResponse.json({ error: error.message || 'Error fetching mentors' }, { status: 500 });

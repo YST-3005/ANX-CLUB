@@ -4,63 +4,62 @@ const projectId = process.env.FIREBASE_PROJECT_ID;
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-if (!admin.apps.length) {
-  if (projectId && clientEmail && privateKey) {
-    try {
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId,
-          clientEmail,
-          privateKey: privateKey.replace(/\\n/g, '\n'),
-        }),
-        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      });
-      console.log('🔥 Firebase Admin SDK initialized successfully.');
-    } catch (error) {
-      console.error('Failed to initialize Firebase Admin SDK:', error);
-    }
-  } else {
-    console.warn(
-      '⚠️ Firebase Admin SDK environment variables are missing. Firebase operations on the server side will fail at runtime if invoked.'
-    );
+function initAdmin(): admin.app.App | null {
+  if (admin.apps.length > 0) return admin.apps[0]!;
+  if (!projectId || !clientEmail || !privateKey) return null;
+
+  try {
+    return admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        privateKey: privateKey.replace(/\\n/g, '\n'),
+      }),
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    });
+  } catch (error) {
+    console.error('Failed to initialize Firebase Admin SDK:', error);
+    return null;
   }
 }
 
+// Module-level lazy singletons
+let cachedDb: admin.firestore.Firestore | null = null;
+let cachedAuth: admin.auth.Auth | null = null;
+let cachedStorage: admin.storage.Storage | null = null;
+
 export const adminDb = new Proxy({} as admin.firestore.Firestore, {
-  get(target, prop) {
-    if (!admin.apps.length) {
-      throw new Error(
-        "Firebase Admin SDK not initialized: Missing required environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)."
-      );
+  get(_, prop) {
+    if (!cachedDb) {
+      const app = initAdmin();
+      if (!app) throw new Error("Firebase Admin SDK missing required credentials.");
+      cachedDb = admin.firestore();
     }
-    const db = admin.firestore();
-    const value = (db as any)[prop];
-    return typeof value === 'function' ? value.bind(db) : value;
+    const value = (cachedDb as any)[prop];
+    return typeof value === 'function' ? value.bind(cachedDb) : value;
   }
 });
 
 export const adminAuth = new Proxy({} as admin.auth.Auth, {
-  get(target, prop) {
-    if (!admin.apps.length) {
-      throw new Error(
-        "Firebase Admin SDK not initialized: Missing required environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)."
-      );
+  get(_, prop) {
+    if (!cachedAuth) {
+      const app = initAdmin();
+      if (!app) throw new Error("Firebase Admin SDK missing required credentials.");
+      cachedAuth = admin.auth();
     }
-    const auth = admin.auth();
-    const value = (auth as any)[prop];
-    return typeof value === 'function' ? value.bind(auth) : value;
+    const value = (cachedAuth as any)[prop];
+    return typeof value === 'function' ? value.bind(cachedAuth) : value;
   }
 });
 
 export const adminStorage = new Proxy({} as admin.storage.Storage, {
-  get(target, prop) {
-    if (!admin.apps.length) {
-      throw new Error(
-        "Firebase Admin SDK not initialized: Missing required environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)."
-      );
+  get(_, prop) {
+    if (!cachedStorage) {
+      const app = initAdmin();
+      if (!app) throw new Error("Firebase Admin SDK missing required credentials.");
+      cachedStorage = admin.storage();
     }
-    const storage = admin.storage();
-    const value = (storage as any)[prop];
-    return typeof value === 'function' ? value.bind(storage) : value;
+    const value = (cachedStorage as any)[prop];
+    return typeof value === 'function' ? value.bind(cachedStorage) : value;
   }
 });

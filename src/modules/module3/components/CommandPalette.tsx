@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useDeferredValue } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Sparkles, Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -8,6 +8,7 @@ import { useTheme } from "next-themes";
 export default function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [aiResults, setAiResults] = useState<any[]>([]);
   const [isSearchingAI, setIsSearchingAI] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -34,7 +35,7 @@ export default function CommandPalette() {
   }, []);
 
   useEffect(() => {
-    if (search.length < 3) {
+    if (deferredSearch.length < 3) {
       setAiResults([]);
       setIsSearchingAI(false);
       return;
@@ -48,7 +49,7 @@ export default function CommandPalette() {
         const res = await fetch('/api/v1/ai-search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: search })
+          body: JSON.stringify({ query: deferredSearch })
         });
         if (res.ok) {
           const data = await res.json();
@@ -59,12 +60,12 @@ export default function CommandPalette() {
       } finally {
         setIsSearchingAI(false);
       }
-    }, 600);
+    }, 300);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [search]);
+  }, [deferredSearch]);
 
   if (!open) return null;
 

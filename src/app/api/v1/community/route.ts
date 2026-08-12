@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { adminDb } from '@/lib/firebase/admin';
 
 export async function GET() {
   try {
-    const q = query(collection(db, 'communityTopics'), orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
+    const snapshot = await adminDb.collection('communityTopics').orderBy('createdAt', 'desc').get();
     const topics = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
     return NextResponse.json(topics);
@@ -35,7 +33,7 @@ export async function POST(request: Request) {
       repliesCount: 0
     };
 
-    const docRef = await addDoc(collection(db, 'communityTopics'), topicData);
+    const docRef = await adminDb.collection('communityTopics').add(topicData);
 
     return NextResponse.json({ id: docRef.id, ...topicData }, { status: 201 });
   } catch (error: any) {
