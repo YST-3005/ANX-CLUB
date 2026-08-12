@@ -1,196 +1,127 @@
-"use client";
+'use client';
 
-import { useAuth } from "@/modules/module3/components/AuthContext";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
+import { useMutation } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/providers/AuthProvider';
+import api from '@/lib/api';
+import { Button } from '@/components/ui/Button';
+import { Input, Textarea } from '@/components/ui/Input';
+import { Card } from '@/components/ui/Card';
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import toast from 'react-hot-toast';
 
-export default function CreateEvent() {
-  const { user, profile, loading } = useAuth();
+const schema = z.object({
+  title: z.string().min(3, 'Title is required'),
+  description: z.string().min(10, 'Description is required'),
+  date: z.string().min(1, 'Date is required'),
+  venue: z.string().optional(),
+  speakerName: z.string().optional(),
+  eventType: z.string().min(1, 'Event type is required'),
+  price: z.coerce.number().min(0).optional(),
+  premiumPrice: z.coerce.number().min(0).optional(),
+  seatsAvailable: z.coerce.number().min(1).optional(),
+  registrationDeadline: z.string().optional(),
+  onlineLink: z.string().url().optional().or(z.literal('')),
+  posterUrl: z.string().url().optional().or(z.literal('')),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+const EVENT_TYPES = ['Workshop', 'Seminar', 'Hackathon', 'Webinar', 'Networking', 'Other'];
+
+export default function CreateEventPage() {
   const router = useRouter();
+  const { user } = useAuth();
 
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    date: "",
-    type: "Online",
-    price: 0,
-    premiumPrice: 0,
-    memberOnly: false,
-    speaker: "",
-    seats: 50,
-    imageUrl: ""
+  const { register, handleSubmit, formState: { errors } } = useForm<z.input<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: { price: 0, premiumPrice: 0 },
   });
-  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!loading) {
-      if (!user) router.push("/login");
-      else if (profile?.role !== "Admin") router.push("/dashboard");
-    }
-  }, [user, profile, loading, router]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/v1/admin/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+  const createMutation = useMutation({
+    mutationFn: async (values: FormValues) => {
+      const res = await api.post('/events', values, {
+        headers: { 'x-user-id': user?.uid || '' },
       });
-      
-      const data = await res.json();
-      
-      if (!res.ok) throw new Error(data.error || 'Failed to create event');
-      
+      return res.data;
+    },
+    onSuccess: () => {
       toast.success('Event created successfully!');
       router.push('/admin/events');
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (loading || !user || profile?.role !== "Admin") return <div className="container" style={{ padding: "4rem 0" }}>Loading...</div>;
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to create event');
+    },
+  });
 
   return (
-    <div className="container" style={{ padding: '2rem 0', maxWidth: '800px' }}>
-      <h1 style={{ marginBottom: '2rem' }}>Create New Event</h1>
-      
-      <form onSubmit={handleSubmit} className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        
-        <div>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Event Title</label>
-          <input 
-            type="text" 
-            name="title"
-            value={formData.title} 
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-color)' }}
-            required
-          />
-        </div>
-        
-        <div>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Description</label>
-          <textarea 
-            name="description"
-            value={formData.description} 
-            onChange={handleChange}
-            rows={4}
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-color)', resize: 'vertical' }}
-            required
-          />
-        </div>
+    <div className="max-w-2xl mx-auto space-y-6">
+      <Link href="/admin/events" className="inline-flex items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground transition-colors">
+        <ArrowLeft className="h-4 w-4" />
+        Back to Events
+      </Link>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Date and Time</label>
-            <input 
-              type="datetime-local" 
-              name="date"
-              value={formData.date} 
-              onChange={handleChange}
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-color)' }}
-              required
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Event Type</label>
-            <select 
-              name="type"
-              value={formData.type} 
-              onChange={handleChange}
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-color)' }}
-            >
-              <option value="Online">Online</option>
-              <option value="In-Person">In-Person</option>
-            </select>
-          </div>
-        </div>
+      <div>
+        <h1 className="text-xl font-semibold text-foreground">Create New Event</h1>
+        <p className="text-sm text-foreground-muted mt-0.5">Fill in the details below to create an event.</p>
+      </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Regular Price (₹)</label>
-            <input 
-              type="number" 
-              name="price"
-              value={formData.price} 
-              onChange={handleChange}
-              min="0"
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-color)' }}
-            />
+      <form onSubmit={handleSubmit((values) => createMutation.mutate(values as FormValues))} className="space-y-5">
+        <Card>
+          <h2 className="text-sm font-semibold text-foreground mb-4">Basic Information</h2>
+          <div className="space-y-4">
+            <Input label="Event Title *" placeholder="e.g. React Workshop 2024" {...register('title')} error={errors.title?.message} />
+            <Textarea label="Description *" placeholder="Describe the event..." rows={4} {...register('description')} error={errors.description?.message} />
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Event Type *</label>
+              <select
+                {...register('eventType')}
+                className="w-full h-9 rounded-lg border border-border bg-surface text-foreground text-sm px-3 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+              >
+                <option value="">Select type...</option>
+                {EVENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              {errors.eventType && <p className="text-xs text-danger mt-1">{errors.eventType.message}</p>}
+            </div>
+            <Input label="Speaker Name" placeholder="e.g. John Doe" {...register('speakerName')} />
           </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Premium Member Price (₹)</label>
-            <input 
-              type="number" 
-              name="premiumPrice"
-              value={formData.premiumPrice} 
-              onChange={handleChange}
-              min="0"
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-color)' }}
-            />
-          </div>
-        </div>
+        </Card>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Total Seats</label>
-            <input 
-              type="number" 
-              name="seats"
-              value={formData.seats} 
-              onChange={handleChange}
-              min="1"
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-color)' }}
-              required
-            />
+        <Card>
+          <h2 className="text-sm font-semibold text-foreground mb-4">Date & Location</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Event Date & Time *" type="datetime-local" {...register('date')} error={errors.date?.message} />
+            <Input label="Registration Deadline" type="datetime-local" {...register('registrationDeadline')} />
+            <Input label="Venue" placeholder="e.g. Online / Hall A" {...register('venue')} containerClassName="sm:col-span-2" />
+            <Input label="Online Link" placeholder="https://meet.google.com/..." {...register('onlineLink')} error={errors.onlineLink?.message} containerClassName="sm:col-span-2" />
           </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Speaker / Mentor Name</label>
-            <input 
-              type="text" 
-              name="speaker"
-              value={formData.speaker} 
-              onChange={handleChange}
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-color)' }}
-            />
+        </Card>
+
+        <Card>
+          <h2 className="text-sm font-semibold text-foreground mb-4">Pricing & Seats</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Input label="Price (₹)" type="number" placeholder="0 = Free" {...register('price')} error={errors.price?.message} />
+            <Input label="Premium Price (₹)" type="number" placeholder="Discounted price" {...register('premiumPrice')} />
+            <Input label="Available Seats" type="number" placeholder="Leave blank = unlimited" {...register('seatsAvailable')} />
           </div>
-        </div>
+        </Card>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <input 
-            type="checkbox" 
-            name="memberOnly"
-            id="memberOnly"
-            checked={formData.memberOnly} 
-            onChange={handleChange}
-            style={{ width: '1.25rem', height: '1.25rem' }}
-          />
-          <label htmlFor="memberOnly" style={{ fontWeight: 600 }}>Member Only Event (Requires Premium Membership)</label>
-        </div>
+        <Card>
+          <h2 className="text-sm font-semibold text-foreground mb-4">Media</h2>
+          <Input label="Poster URL" placeholder="https://..." {...register('posterUrl')} error={errors.posterUrl?.message} />
+        </Card>
 
-        <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
-          <button type="submit" className="btn btn-primary" disabled={submitting}>
-            {submitting ? 'Creating...' : 'Create Event'}
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={() => router.push('/admin/events')} disabled={submitting}>
-            Cancel
-          </button>
+        <div className="flex gap-3 justify-end">
+          <Link href="/admin/events">
+            <Button variant="secondary">Cancel</Button>
+          </Link>
+          <Button type="submit" variant="primary" isLoading={createMutation.isPending}>
+            Create Event
+          </Button>
         </div>
       </form>
     </div>

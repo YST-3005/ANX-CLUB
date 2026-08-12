@@ -1,44 +1,24 @@
-"use client";
-
-import { useAuth } from "@/modules/module3/components/AuthContext";
-import Link from "next/link";
-import { ROADMAPS } from "@/modules/module7/lib/roadmaps";
-
-export default function RoadmapsList() {
-  const { profile } = useAuth();
-  const isPremium = profile?.membershipType === "Premium" || profile?.role === "Admin";
-
+'use client';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+export default function Page() {
   return (
-    <div className="container" style={{ padding: '4rem 0' }}>
-      <h1 style={{ marginBottom: '2rem' }}>Learning Roadmaps</h1>
-      <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)', marginBottom: '3rem' }}>
-        Curated paths to help you master new skills.
-      </p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
-        {ROADMAPS.map((roadmap: any) => {
-          const locked = roadmap.isPremium && !isPremium;
-          return (
-            <div key={roadmap.id} className="glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <h3 style={{ marginBottom: '0.5rem' }}>{roadmap.title}</h3>
-                  {roadmap.isPremium && (
-                    <span style={{ padding: '0.25rem 0.5rem', backgroundColor: 'var(--primary-color)', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: 600 }}>
-                      Premium
-                    </span>
-                  )}
-                </div>
-                <p style={{ color: 'var(--text-muted)' }}>{roadmap.description}</p>
-              </div>
-              
-              <Link href={`/roadmaps/${roadmap.id}`} className={locked ? "btn btn-primary" : "btn btn-secondary"} style={{ width: '100%', textAlign: 'center', marginTop: '2rem' }}>
-                {locked ? "Upgrade to Unlock" : "View Roadmap Details"}
-              </Link>
-            </div>
-          );
-        })}
+    <div className="space-y-6 max-w-[1600px] mx-auto w-full pb-10">
+      <div className="flex items-center justify-between bg-black/40 border border-white/10 p-6 rounded-2xl backdrop-blur-xl">
+        <div>
+          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400 flex items-center gap-2">
+            Roadmaps
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">Curated learning paths</p>
+        </div>
       </div>
+      <Card padding='lg' className="bg-black/20">
+        <h1 className='text-xl font-semibold text-white mb-2'>Coming Soon</h1>
+        <p className='text-sm text-gray-400'>Roadmaps are currently under construction.</p>
+      </Card>
     </div>
   );
 }

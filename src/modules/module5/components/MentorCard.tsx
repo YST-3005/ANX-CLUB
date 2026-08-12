@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { Card } from '@/components/ui/Card';
+import { ArrowRight, Star } from "lucide-react";
 
 interface MentorCardProps {
   mentor: {
@@ -9,42 +13,57 @@ interface MentorCardProps {
     company: string;
     imageUrl?: string;
     topics: string[];
+    rating?: number;
+    reviewsCount?: number;
   };
 }
 
 export default function MentorCard({ mentor }: MentorCardProps) {
   return (
-    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
+    <Card className="flex flex-col h-full group">
+      <div className="flex-1">
+        <div className="flex gap-4 items-center mb-4">
           {mentor.imageUrl ? (
-            <Image src={mentor.imageUrl} alt={mentor.name} width={60} height={60} style={{ borderRadius: '50%', objectFit: 'cover' }} />
+            <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+              <Image src={mentor.imageUrl} alt={mentor.name} fill className="object-cover" />
+            </div>
           ) : (
-            <div style={{ width: '60px', height: '60px', borderRadius: '50%', backgroundColor: 'var(--surface-color)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary-color)' }}>
+            <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-violet-500 to-blue-500 flex justify-center items-center text-2xl font-bold text-white shadow-[0_0_15px_rgba(139,92,246,0.3)]">
               {mentor.name.charAt(0)}
             </div>
           )}
-          <div>
-            <h3 style={{ marginBottom: '0.25rem' }}>{mentor.name}</h3>
-            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{mentor.role} at {mentor.company}</div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-bold text-white truncate">{mentor.name}</h3>
+            <div className="text-sm text-slate-400 truncate">{mentor.role} at <span className="text-emerald-400">{mentor.company}</span></div>
           </div>
         </div>
         
-        <div style={{ marginTop: '1rem', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Topics:</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {mentor.topics.map((topic: string) => (
-              <span key={topic} style={{ padding: '0.25rem 0.5rem', backgroundColor: 'var(--surface-color)', borderRadius: '0.25rem', fontSize: '0.75rem' }}>
+        <div className="mt-4 mb-6">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Expertise</div>
+          <div className="flex flex-wrap gap-2">
+            {mentor.topics.slice(0, 3).map((topic: string) => (
+              <span key={topic} className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300">
                 {topic}
               </span>
             ))}
+            {mentor.topics.length > 3 && (
+              <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-500">
+                +{mentor.topics.length - 3} more
+              </span>
+            )}
           </div>
         </div>
       </div>
       
-      <Link href={`/mentors/${mentor.id}`} className="btn btn-secondary" style={{ width: '100%', textAlign: 'center' }}>
-        View Profile
-      </Link>
-    </div>
+      <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
+        <div className="flex items-center gap-1 text-yellow-400 text-sm font-medium">
+          <Star size={14} className="fill-yellow-400" /> 
+          {mentor.rating ? mentor.rating.toFixed(1) : "New"}
+        </div>
+        <Link href={`/mentors/${mentor.id}`} className="text-sm font-medium text-white group-hover:text-emerald-400 flex items-center gap-1 transition-colors">
+          View Profile <ArrowRight size={14} />
+        </Link>
+      </div>
+    </Card>
   );
 }

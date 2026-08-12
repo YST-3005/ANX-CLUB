@@ -1,333 +1,273 @@
-"use client";
+'use client';
 
-import { useAuth } from "@/modules/module3/components/AuthContext";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Script from "next/script";
-import toast from "react-hot-toast";
-import { Event } from "@/types";
+import { use } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { eventsApi, paymentsApi } from '@/lib/api';
+import { useAuth } from '@/providers/AuthProvider';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Avatar } from '@/components/ui/Avatar';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { ErrorState } from '@/components/ui/EmptyState';
+import { formatDate, formatDateTime, formatCurrency, isUpcoming } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import {
+  Calendar,
+  MapPin,
+  Users,
+  Clock,
+  Mic,
+  ArrowLeft,
+  CheckCircle,
+  ExternalLink,
+  Share2,
+} from 'lucide-react';
+import Link from 'next/link';
+import toast from 'react-hot-toast';
 
-export default function EventDetail({ params }: { params: { id: string } }) {
-  const { user, profile } = useAuth();
-  const router = useRouter();
-  
-  const [event, setEvent] = useState<Event | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [registering, setRegistering] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    college: '',
-    teamName: '',
-    teamMembers: ''
+interface Params { id: string }
+
+export default function EventDetailPage({ params }: { params: Promise<Params> }) {
+  const { id } = use(params);
+  const { user, isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
+
+  const { data: event, isLoading, isError, refetch } = useQuery({
+    queryKey: ['event', id],
+    queryFn: async () => {
+      const res = await eventsApi.get(id);
+      const raw = res.data;
+      return raw?.data || raw;
+    },
   });
 
-  useEffect(() => {
-    const fetchEvent = async () => {
+  const registerMutation = useMutation({
+    mutationFn: () => eventsApi.register(id),
+    onSuccess: () => {
+      toast.success('Successfully registered!');
+      queryClient.invalidateQueries({ queryKey: ['event', id] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to register');
+    },
+  });
+
+  const handleRegister = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to register');
+      return;
+    }
+
+    // If paid event, create Razorpay order
+    if (event?.price > 0) {
       try {
-        const res = await fetch(`/api/v1/events/${params.id}`);
-        if (!res.ok) throw new Error('Event not found');
-        const result = await res.json();
-        setEvent(result.data || result);
+        const orderRes = await paymentsApi.createOrder({
+          amount: event.price * 100, // paise
+          eventId: id,
+        });
+        const order = orderRes.data;
+
+        if (typeof window !== 'undefined' && (window as any).Razorpay) {
+          const rzp = new (window as any).Razorpay({
+            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+            amount: order.amount,
+            currency: order.currency || 'INR',
+            name: 'A.N.X Platform',
+            description: event.title,
+            order_id: order.id,
+            handler: async (response: any) => {
+              try {
+                await paymentsApi.verify(response);
+                await eventsApi.register(id);
+                toast.success('Payment successful! Registered.');
+                queryClient.invalidateQueries({ queryKey: ['event', id] });
+              } catch {
+                toast.error('Payment verification failed');
+              }
+            },
+            prefill: {
+              email: user?.email || '',
+            },
+            theme: { color: '#6366f1' },
+          });
+          rzp.open();
+        } else {
+          toast.error('Payment system not loaded. Try refreshing.');
+        }
       } catch (err: any) {
-        toast.error(err.message);
-        router.push('/events');
-      } finally {
-        setLoading(false);
+        toast.error(err?.response?.data?.message || 'Failed to create order');
       }
-    };
-    fetchEvent();
-  }, [params.id, router]);
+      return;
+    }
 
-  if (loading) {
-    return <div className="container" style={{ padding: '4rem 0', textAlign: 'center' }}>Loading event details...</div>;
+    registerMutation.mutate();
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-12 w-3/4" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
   }
-  
-  if (!event) return null;
 
-  const isPremium = profile?.membershipType?.toLowerCase() === "premium" || profile?.role === "Premium Member";
-  const finalPrice = isPremium && event.premiumPrice !== undefined ? event.premiumPrice : event.price;
-  
-  const seatsAvailable = event.seatsAvailable ?? event.seats ?? 0;
-  const seatsBooked = event.seatsBooked ?? event.registeredCount ?? 0;
-  const isSoldOut = seatsBooked >= seatsAvailable;
+  if (isError || !event) {
+    return <ErrorState onRetry={refetch} description="Could not load event details." />;
+  }
 
-  const handleOpenModal = () => {
-    if (!user) {
-      toast.error("Please log in to register");
-      router.push("/login");
-      return;
-    }
-    
-    if (event.eventType === "member-only" && !isPremium) {
-      toast.error("This event is for Premium Members only. Please upgrade your membership.");
-      router.push("/membership");
-      return;
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      name: profile?.fullName || '',
-      email: profile?.email || user?.email || '',
-      phone: profile?.phoneNumber || ''
-    }));
-    setIsModalOpen(true);
-  };
-
-  const submitRegistration = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setRegistering(true);
-
-    const token = await user.getIdToken();
-
-    try {
-      const res = await fetch(`/api/v1/events/${event.id}/register`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          college: formData.college,
-          teamName: formData.teamName,
-          teamMembers: formData.teamMembers
-        })
-      });
-      
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to register');
-
-      if (data.paymentRequired) {
-        const options = {
-          key: data.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_dummykey",
-          amount: data.amount * 100,
-          currency: data.currency || "INR",
-          name: "ANX Platform",
-          description: `Registration for ${event.title}`,
-          order_id: data.orderId,
-          handler: async function (response: any) {
-            try {
-              setRegistering(true);
-              const verifyRes = await fetch("/api/v1/payments/verify", {
-                method: "POST",
-                headers: { 
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  eventId: event.id,
-                  name: formData.name,
-                  email: formData.email,
-                  phone: formData.phone,
-                }),
-              });
-              const verifyData = await verifyRes.json();
-              if (!verifyData.success) throw new Error(verifyData.message);
-              
-              toast.success("Registration and payment successful!");
-              setIsModalOpen(false);
-              setEvent((prev: any) => {
-                if (!prev) return null;
-                return {
-                  ...prev,
-                  seatsBooked: (prev.seatsBooked ?? 0) + 1,
-                  registeredCount: (prev.registeredCount ?? 0) + 1
-                };
-              });
-            } catch (err: any) {
-              toast.error("Verification failed: " + err.message);
-            } finally {
-              setRegistering(false);
-            }
-          },
-          prefill: data.prefill || {
-            name: formData.name,
-            email: formData.email,
-            contact: formData.phone
-          },
-          theme: {
-            color: "#0f1f4a",
-          },
-        };
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on('payment.failed', function (response: any) {
-          toast.error("Payment Failed: " + response.error.description);
-        });
-        rzp.open();
-      } else {
-        toast.success("Registered successfully!");
-        setIsModalOpen(false);
-        setEvent((prev: any) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            seatsBooked: (prev.seatsBooked ?? 0) + 1,
-            registeredCount: (prev.registeredCount ?? 0) + 1
-          };
-        });
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to register.");
-    } finally {
-      setRegistering(false);
-    }
-  };
+  const upcoming = isUpcoming(event.date);
+  const isFree = !event.price || event.price === 0;
+  const isFull = event.seatsAvailable !== null && event.seatsBooked >= event.seatsAvailable;
 
   return (
-    <div className="container" style={{ padding: '4rem 0', maxWidth: '800px' }}>
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
-      <div className="glass-panel">
-        <span style={{ color: 'var(--primary-color)', fontWeight: 600 }}>
-          {new Date(event.date).toLocaleDateString()}
-        </span>
-        <h1 style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>{event.title}</h1>
-        <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>
-          {event.speakerName || event.speaker ? `By ${event.speakerName || event.speaker}` : ""}
-        </p>
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Back */}
+      <Link href="/events" className="inline-flex items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground transition-colors">
+        <ArrowLeft className="h-4 w-4" />
+        Back to Events
+      </Link>
 
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
-          <div style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--surface-color)', borderRadius: 'var(--radius-md)' }}>
-            <strong>Type:</strong> {event.eventType || event.type || "Event"}
-          </div>
-          <div style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--surface-color)', borderRadius: 'var(--radius-md)' }}>
-            <strong>Seats:</strong> {isSoldOut ? "0" : seatsAvailable - seatsBooked} Available
-          </div>
-          {event.eventType === "member-only" && (
-            <div style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--secondary-color)', color: 'white', borderRadius: 'var(--radius-md)' }}>
-              <strong>Members Only</strong>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main */}
+        <div className="lg:col-span-2 space-y-5">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <Badge variant={upcoming ? 'success' : 'muted'} dot>
+                {upcoming ? 'Upcoming' : 'Past'}
+              </Badge>
+              {event.eventType && <Badge variant="default">{event.eventType}</Badge>}
+              <Badge variant={isFree ? 'success' : 'warning'}>
+                {isFree ? 'Free Entry' : formatCurrency(event.price)}
+              </Badge>
             </div>
+
+            <h1 className="text-2xl font-bold text-foreground leading-tight mb-2">
+              {event.title}
+            </h1>
+
+            <p className="text-foreground-secondary leading-relaxed">
+              {event.description}
+            </p>
+          </motion.div>
+
+          {/* Details Card */}
+          <Card>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { icon: Calendar, label: 'Date', value: formatDate(event.date) },
+                { icon: Clock, label: 'Time', value: event.date ? new Date(event.date).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }) : 'TBA' },
+                { icon: MapPin, label: 'Venue', value: event.venue || 'Online' },
+                ...(event.speakerName ? [{ icon: Mic, label: 'Speaker', value: event.speakerName }] : []),
+                ...(event.seatsAvailable ? [{ icon: Users, label: 'Seats', value: `${event.seatsBooked || 0} / ${event.seatsAvailable} registered` }] : []),
+              ].map((detail) => (
+                <div key={detail.label} className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-surface-hover text-foreground-muted shrink-0">
+                    <detail.icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-foreground-muted">{detail.label}</p>
+                    <p className="text-sm font-medium text-foreground">{detail.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Online link */}
+          {event.onlineLink && (
+            <Card>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Online Meeting Link</p>
+                  <p className="text-xs text-foreground-muted mt-0.5">Click to join the session</p>
+                </div>
+                <a href={event.onlineLink} target="_blank" rel="noreferrer">
+                  <Button variant="secondary" size="sm" rightIcon={<ExternalLink className="h-3.5 w-3.5" />}>
+                    Join
+                  </Button>
+                </a>
+              </div>
+            </Card>
           )}
         </div>
 
-        <div style={{ marginBottom: '3rem' }}>
-          <h3>About this event</h3>
-          <p style={{ marginTop: '1rem', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{event.description}</p>
-        </div>
-
-        <div style={{ padding: '2rem', backgroundColor: 'var(--surface-color)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Registration Fee</div>
-            <div style={{ fontSize: '2rem', fontWeight: 700 }}>
-              {finalPrice === 0 ? "Free" : `₹${finalPrice}`}
+        {/* Sidebar */}
+        <div className="space-y-4">
+          {/* Registration Card */}
+          <Card className="sticky top-20">
+            <div className="text-center mb-4">
+              <p className="text-2xl font-bold text-foreground">
+                {isFree ? 'Free' : formatCurrency(event.price)}
+              </p>
+              {!isFree && event.premiumPrice > 0 && (
+                <p className="text-xs text-foreground-muted mt-0.5">
+                  Premium members: {formatCurrency(event.premiumPrice)}
+                </p>
+              )}
             </div>
-            {isPremium && event.price > 0 && event.premiumPrice !== undefined && event.premiumPrice < event.price && (
-              <div style={{ color: 'var(--primary-color)', fontSize: '0.875rem', fontWeight: 600 }}>Premium Discount Applied! (Regular: ₹{event.price})</div>
+
+            {/* Seat progress */}
+            {event.seatsAvailable && (
+              <div className="mb-4">
+                <div className="flex justify-between text-xs text-foreground-muted mb-1.5">
+                  <span>{event.seatsBooked || 0} registered</span>
+                  <span>{event.seatsAvailable} total</span>
+                </div>
+                <div className="h-1.5 bg-surface-hover rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all"
+                    style={{ width: `${Math.min(100, ((event.seatsBooked || 0) / event.seatsAvailable) * 100)}%` }}
+                  />
+                </div>
+              </div>
             )}
-          </div>
-          <button 
-            className="btn btn-primary" 
-            onClick={handleOpenModal} 
-            disabled={registering || isSoldOut} 
-            style={{ padding: '1rem 2rem', fontSize: '1.125rem' }}
-          >
-            {registering ? "Processing..." : isSoldOut ? "Sold Out" : "Register Now"}
-          </button>
+
+            {upcoming ? (
+              <Button
+                variant={isFull ? 'secondary' : 'primary'}
+                className="w-full"
+                isLoading={registerMutation.isPending}
+                onClick={handleRegister}
+                disabled={isFull}
+              >
+                {isFull ? 'Event Full' : registerMutation.isSuccess ? (
+                  <><CheckCircle className="h-4 w-4" /> Registered!</>
+                ) : isFree ? 'Register for Free' : `Pay ${formatCurrency(event.price)}`}
+              </Button>
+            ) : (
+              <Button variant="secondary" className="w-full" disabled>
+                Event Ended
+              </Button>
+            )}
+
+            {event.registrationDeadline && (
+              <p className="text-xs text-foreground-muted text-center mt-3">
+                Registration closes {formatDateTime(event.registrationDeadline)}
+              </p>
+            )}
+
+            <button className="w-full mt-3 flex items-center justify-center gap-1.5 text-xs text-foreground-muted hover:text-foreground transition-colors">
+              <Share2 className="h-3.5 w-3.5" />
+              Share event
+            </button>
+          </Card>
+
+          {/* Organizer */}
+          {event.createdBy && (
+            <Card>
+              <p className="text-xs text-foreground-muted mb-2">Organized by</p>
+              <div className="flex items-center gap-2">
+                <Avatar name="A.N.X Team" size="sm" />
+                <p className="text-sm font-medium text-foreground">A.N.X Team</p>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
-
-      {isModalOpen && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000
-        }}>
-          <div className="glass-panel" style={{ width: '90%', maxWidth: '500px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h2 style={{ marginBottom: '1.5rem' }}>Complete Registration</h2>
-            
-            <form onSubmit={submitRegistration} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="form-group">
-                <label className="form-label">Name <span style={{ color: 'var(--accent-color)' }}>*</span></label>
-                <input 
-                  className="form-input" 
-                  type="text" 
-                  required
-                  value={formData.name} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Email Address <span style={{ color: 'var(--accent-color)' }}>*</span></label>
-                <input 
-                  className="form-input" 
-                  type="email" 
-                  required 
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="Where should we send your ticket?"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Mobile Number</label>
-                <input 
-                  className="form-input" 
-                  type="tel" 
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="+91 9876543210"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">College / University</label>
-                <input 
-                  className="form-input" 
-                  type="text" 
-                  value={formData.college}
-                  onChange={(e) => setFormData(prev => ({ ...prev, college: e.target.value }))}
-                  placeholder="Your college name"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Team Name (if applicable)</label>
-                <input 
-                  className="form-input" 
-                  type="text" 
-                  value={formData.teamName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, teamName: e.target.value }))}
-                  placeholder="Enter team name"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Team Members (comma separated)</label>
-                <textarea 
-                  className="form-input" 
-                  rows={2}
-                  value={formData.teamMembers}
-                  onChange={(e) => setFormData(prev => ({ ...prev, teamMembers: e.target.value }))}
-                  placeholder="Names of other team members"
-                  style={{ fontFamily: 'inherit', resize: 'vertical' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  disabled={registering}
-                  style={{ flex: 1, opacity: registering ? 0.7 : 1 }}
-                >
-                  {registering ? 'Processing...' : (finalPrice > 0 ? `Pay ₹${finalPrice}` : "Confirm Registration")}
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)} style={{ flex: 1 }}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
