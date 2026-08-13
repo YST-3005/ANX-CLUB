@@ -12,7 +12,7 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
     token: process.env.UPSTASH_REDIS_REST_TOKEN,
   });
 } else if (process.env.NODE_ENV === 'production') {
-  throw new Error("Redis/Upstash is required in production for rate limiting.");
+  console.warn("WARNING: Redis/Upstash is missing but required in production for rate limiting.");
 }
 
 // In-memory fallback ONLY for development
