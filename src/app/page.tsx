@@ -1,5 +1,5 @@
-import { LandingPage } from "@/frontend/components/landing/LandingPage";
+import { redirect } from 'next/navigation'
 
-export default function RootLandingPage() {
-  return <LandingPage />;
+export default function HomePage() {
+  redirect('/dashboard')
 }

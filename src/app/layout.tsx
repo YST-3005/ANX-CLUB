@@ -1,29 +1,19 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import { AuthProvider } from "@/modules/module3/components/AuthContext";
-import { ThemeProvider } from "@/components/providers/ThemeProvider";
-import { Toaster } from "react-hot-toast";
+import type { Metadata } from 'next'
+import './globals.css'
+import { Providers } from '@/components/providers'
 
 export const metadata: Metadata = {
-  title: "A.N.X Platform",
-  description: "Unified Web Platform for Mentorship, Events, and Collaboration",
-};
+  title: { default: 'A.N.X — Club & Member Ecosystem', template: '%s | A.N.X' },
+  description: 'A premium platform for student clubs — events, mentorship, and community all in one place.',
+  keywords: ['student club', 'mentorship', 'events', 'networking', 'college'],
+}
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          <AuthProvider>
-            <Toaster position="top-right" />
-            {children}
-          </AuthProvider>
-        </ThemeProvider>
+      <body className="min-h-screen bg-background font-sans antialiased">
+        <Providers>{children}</Providers>
       </body>
     </html>
-  );
+  )
 }

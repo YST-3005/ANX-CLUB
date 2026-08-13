@@ -1,273 +1,265 @@
-'use client';
+'use client'
+import React, { useState, use } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { 
+  ArrowLeft, Calendar, Clock, MapPin, Users, 
+  Award, Video, User, CheckCircle2, ChevronRight, 
+  MapIcon, LinkIcon, HelpCircle 
+} from 'lucide-react'
+import { MOCK_EVENTS, MOCK_USER } from '@/lib/constants'
+import { formatDate, formatCurrency } from '@/lib/utils'
+import toast from 'react-hot-toast'
 
-import { use } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { eventsApi, paymentsApi } from '@/lib/api';
-import { useAuth } from '@/providers/AuthProvider';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { Avatar } from '@/components/ui/Avatar';
-import { Skeleton } from '@/components/ui/Skeleton';
-import { ErrorState } from '@/components/ui/EmptyState';
-import { formatDate, formatDateTime, formatCurrency, isUpcoming } from '@/lib/utils';
-import { motion } from 'framer-motion';
-import {
-  Calendar,
-  MapPin,
-  Users,
-  Clock,
-  Mic,
-  ArrowLeft,
-  CheckCircle,
-  ExternalLink,
-  Share2,
-} from 'lucide-react';
-import Link from 'next/link';
-import toast from 'react-hot-toast';
+interface PageProps {
+  params: Promise<{ id: string }>
+}
 
-interface Params { id: string }
+export default function EventDetailPage({ params }: PageProps) {
+  const router = useRouter()
+  
+  // Resolve the asynchronous params promise using React.use()
+  const resolvedParams = use(params)
+  const eventId = resolvedParams.id
+  
+  const event = MOCK_EVENTS.find(e => e.id === eventId)
+  const [registeredList, setRegisteredList] = useState<string[]>(MOCK_USER.registeredEvents)
 
-export default function EventDetailPage({ params }: { params: Promise<Params> }) {
-  const { id } = use(params);
-  const { user, isAuthenticated } = useAuth();
-  const queryClient = useQueryClient();
-
-  const { data: event, isLoading, isError, refetch } = useQuery({
-    queryKey: ['event', id],
-    queryFn: async () => {
-      const res = await eventsApi.get(id);
-      const raw = res.data;
-      return raw?.data || raw;
-    },
-  });
-
-  const registerMutation = useMutation({
-    mutationFn: () => eventsApi.register(id),
-    onSuccess: () => {
-      toast.success('Successfully registered!');
-      queryClient.invalidateQueries({ queryKey: ['event', id] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Failed to register');
-    },
-  });
-
-  const handleRegister = async () => {
-    if (!isAuthenticated) {
-      toast.error('Please sign in to register');
-      return;
-    }
-
-    // If paid event, create Razorpay order
-    if (event?.price > 0) {
-      try {
-        const orderRes = await paymentsApi.createOrder({
-          amount: event.price * 100, // paise
-          eventId: id,
-        });
-        const order = orderRes.data;
-
-        if (typeof window !== 'undefined' && (window as any).Razorpay) {
-          const rzp = new (window as any).Razorpay({
-            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-            amount: order.amount,
-            currency: order.currency || 'INR',
-            name: 'A.N.X Platform',
-            description: event.title,
-            order_id: order.id,
-            handler: async (response: any) => {
-              try {
-                await paymentsApi.verify(response);
-                await eventsApi.register(id);
-                toast.success('Payment successful! Registered.');
-                queryClient.invalidateQueries({ queryKey: ['event', id] });
-              } catch {
-                toast.error('Payment verification failed');
-              }
-            },
-            prefill: {
-              email: user?.email || '',
-            },
-            theme: { color: '#6366f1' },
-          });
-          rzp.open();
-        } else {
-          toast.error('Payment system not loaded. Try refreshing.');
-        }
-      } catch (err: any) {
-        toast.error(err?.response?.data?.message || 'Failed to create order');
-      }
-      return;
-    }
-
-    registerMutation.mutate();
-  };
-
-  if (isLoading) {
+  if (!event) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-12 w-3/4" />
-        <Skeleton className="h-64 w-full rounded-xl" />
+      <div className="min-h-[50vh] flex flex-col items-center justify-center space-y-4">
+        <h2 className="text-xl font-bold text-foreground">Event not found</h2>
+        <p className="text-xs text-muted-foreground">The event you are looking for does not exist or has been removed.</p>
+        <Link href="/events" className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-semibold">
+          Back to Events
+        </Link>
       </div>
-    );
+    )
   }
 
-  if (isError || !event) {
-    return <ErrorState onRetry={refetch} description="Could not load event details." />;
-  }
+  const isUserRegistered = registeredList.includes(event.id)
+  const totalCapacity = event.capacity
+  const registeredCount = isUserRegistered ? event.registeredCount + 1 : event.registeredCount
+  const seatsAvailable = isUserRegistered ? event.seatsAvailable - 1 : event.seatsAvailable
+  const registrationPercentage = Math.round((registeredCount / totalCapacity) * 100)
 
-  const upcoming = isUpcoming(event.date);
-  const isFree = !event.price || event.price === 0;
-  const isFull = event.seatsAvailable !== null && event.seatsBooked >= event.seatsAvailable;
+  const handleRegisterToggle = () => {
+    if (isUserRegistered) {
+      setRegisteredList(p => p.filter(id => id !== event.id))
+      toast.success('Registration cancelled')
+    } else {
+      setRegisteredList(p => [...p, event.id])
+      toast.success('Registered successfully! Check your inbox for confirmation. 🎉')
+    }
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Back */}
-      <Link href="/events" className="inline-flex items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground transition-colors">
-        <ArrowLeft className="h-4 w-4" />
-        Back to Events
-      </Link>
+    <div className="space-y-8 select-none">
+      {/* Back button */}
+      <div>
+        <button 
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Listing
+        </button>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main */}
-        <div className="lg:col-span-2 space-y-5">
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <Badge variant={upcoming ? 'success' : 'muted'} dot>
-                {upcoming ? 'Upcoming' : 'Past'}
-              </Badge>
-              {event.eventType && <Badge variant="default">{event.eventType}</Badge>}
-              <Badge variant={isFree ? 'success' : 'warning'}>
-                {isFree ? 'Free Entry' : formatCurrency(event.price)}
-              </Badge>
-            </div>
-
-            <h1 className="text-2xl font-bold text-foreground leading-tight mb-2">
-              {event.title}
-            </h1>
-
-            <p className="text-foreground-secondary leading-relaxed">
-              {event.description}
-            </p>
-          </motion.div>
-
-          {/* Details Card */}
-          <Card>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[
-                { icon: Calendar, label: 'Date', value: formatDate(event.date) },
-                { icon: Clock, label: 'Time', value: event.date ? new Date(event.date).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }) : 'TBA' },
-                { icon: MapPin, label: 'Venue', value: event.venue || 'Online' },
-                ...(event.speakerName ? [{ icon: Mic, label: 'Speaker', value: event.speakerName }] : []),
-                ...(event.seatsAvailable ? [{ icon: Users, label: 'Seats', value: `${event.seatsBooked || 0} / ${event.seatsAvailable} registered` }] : []),
-              ].map((detail) => (
-                <div key={detail.label} className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-surface-hover text-foreground-muted shrink-0">
-                    <detail.icon className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-foreground-muted">{detail.label}</p>
-                    <p className="text-sm font-medium text-foreground">{detail.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Online link */}
-          {event.onlineLink && (
-            <Card>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Online Meeting Link</p>
-                  <p className="text-xs text-foreground-muted mt-0.5">Click to join the session</p>
-                </div>
-                <a href={event.onlineLink} target="_blank" rel="noreferrer">
-                  <Button variant="secondary" size="sm" rightIcon={<ExternalLink className="h-3.5 w-3.5" />}>
-                    Join
-                  </Button>
-                </a>
-              </div>
-            </Card>
-          )}
+      {/* Hero Cover Card */}
+      <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-card shadow-sm">
+        {/* Cover background */}
+        <div className="relative h-64 md:h-80 w-full bg-muted overflow-hidden">
+          <img
+            src={event.posterUrl}
+            alt={event.title}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-4">
-          {/* Registration Card */}
-          <Card className="sticky top-20">
-            <div className="text-center mb-4">
-              <p className="text-2xl font-bold text-foreground">
-                {isFree ? 'Free' : formatCurrency(event.price)}
-              </p>
-              {!isFree && event.premiumPrice > 0 && (
-                <p className="text-xs text-foreground-muted mt-0.5">
-                  Premium members: {formatCurrency(event.premiumPrice)}
+        {/* Floating Details Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 text-white flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <span className="px-3 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold uppercase tracking-wider">
+                {event.category}
+              </span>
+              {event.premiumOnly && (
+                <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider">
+                  <Award className="w-3.5 h-3.5" /> Premium Only
+                </span>
+              )}
+            </div>
+            <h1 className="font-display text-2xl md:text-3xl font-extrabold tracking-tight">
+              {event.title}
+            </h1>
+            <p className="text-xs text-blue-100 flex items-center gap-2 font-medium">
+              <Calendar className="w-4 h-4" /> {formatDate(event.date)} @ {event.time} ({event.duration} minutes)
+            </p>
+          </div>
+
+          <div className="shrink-0 w-full md:w-64 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-4 space-y-3">
+            <div className="flex justify-between text-xs font-semibold text-white">
+              <span>Registration Status</span>
+              <span>{registrationPercentage}% Full</span>
+            </div>
+            
+            <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-primary rounded-full transition-all duration-500" 
+                style={{ width: `${registrationPercentage}%` }} 
+              />
+            </div>
+
+            <div className="flex justify-between text-[10px] text-blue-100">
+              <span>{seatsAvailable} seats remaining</span>
+              <span>Capacity: {totalCapacity}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Details Grid */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Description & Agenda */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Description */}
+          <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm space-y-4">
+            <h3 className="font-display text-lg font-bold text-foreground">About the Event</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {event.description}
+            </p>
+          </div>
+
+          {/* Agenda Checklist */}
+          {event.agenda && event.agenda.length > 0 && (
+            <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm space-y-4">
+              <h3 className="font-display text-lg font-bold text-foreground">Session Agenda</h3>
+              
+              <div className="space-y-4 relative pl-4 border-l border-border/60">
+                {event.agenda.map((item, idx) => (
+                  <div key={item} className="relative space-y-1">
+                    {/* Bullet circle */}
+                    <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-primary border-2 border-card" />
+                    <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Slot #{idx + 1}</span>
+                    <p className="text-xs font-semibold text-foreground">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Venue Info Card */}
+          <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm space-y-4">
+            <h3 className="font-display text-lg font-bold text-foreground">Location & Connection</h3>
+            
+            {event.isOnline ? (
+              <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Video className="w-5 h-5" />
+                </div>
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <h4 className="text-xs font-bold text-foreground">Interactive Virtual Live Webinar</h4>
+                  <p className="text-[11px] text-muted-foreground">Meeting link will activate for registered members 10 minutes prior to session starting.</p>
+                  
+                  {isUserRegistered ? (
+                    <a
+                      href={event.meetingLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary font-bold hover:underline pt-1"
+                    >
+                      Access Live Room <LinkIcon className="w-3.5 h-3.5" />
+                    </a>
+                  ) : (
+                    <span className="text-[10px] text-amber-500 font-semibold uppercase tracking-wider block">
+                      Register to unlock live link
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-muted/20 border border-border/40 rounded-2xl flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-muted text-foreground flex items-center justify-center shrink-0">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-foreground">On-Campus Physical Venue</h4>
+                  <p className="text-xs text-muted-foreground">{event.venue}</p>
+                  {event.address && (
+                    <p className="text-[10px] text-muted-foreground/80 mt-1">{event.address}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Speaker Showcase & Side Actions */}
+        <div className="space-y-6">
+          {/* Main Action Register Widget */}
+          <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Pricing details</span>
+              <h3 className="font-display text-2xl font-black text-foreground">
+                {event.price === 0 ? 'FREE ENTRY' : formatCurrency(event.price)}
+              </h3>
+            </div>
+
+            <div className="border-t border-border/40 my-3" />
+
+            <button
+              onClick={handleRegisterToggle}
+              className={`w-full py-3.5 rounded-xl font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
+                isUserRegistered
+                  ? 'bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 border border-rose-500/20'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/95 shadow-primary/20'
+              }`}
+            >
+              {isUserRegistered ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4" /> Cancel Registration
+                </>
+              ) : (
+                'Confirm Seat Registration'
+              )}
+            </button>
+
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground justify-center">
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>Need help? Contact the ANX Operations lead</span>
+            </div>
+          </div>
+
+          {/* Speaker Showcase */}
+          {event.speaker && (
+            <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm space-y-5">
+              <h3 className="font-display text-base font-bold text-foreground">About the Lead Expert</h3>
+              
+              <div className="flex items-center gap-3">
+                <img
+                  src={event.speakerImage}
+                  alt={event.speaker}
+                  className="w-12 h-12 rounded-2xl object-cover shrink-0"
+                />
+                <div>
+                  <h4 className="text-xs font-bold text-foreground leading-snug">{event.speaker}</h4>
+                  <span className="inline-flex items-center gap-0.5 text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded font-semibold mt-1">
+                    Featured Speaker
+                  </span>
+                </div>
+              </div>
+
+              {event.speakerBio && (
+                <p className="text-xs text-muted-foreground leading-relaxed border-t border-border/30 pt-3">
+                  {event.speakerBio}
                 </p>
               )}
             </div>
-
-            {/* Seat progress */}
-            {event.seatsAvailable && (
-              <div className="mb-4">
-                <div className="flex justify-between text-xs text-foreground-muted mb-1.5">
-                  <span>{event.seatsBooked || 0} registered</span>
-                  <span>{event.seatsAvailable} total</span>
-                </div>
-                <div className="h-1.5 bg-surface-hover rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all"
-                    style={{ width: `${Math.min(100, ((event.seatsBooked || 0) / event.seatsAvailable) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {upcoming ? (
-              <Button
-                variant={isFull ? 'secondary' : 'primary'}
-                className="w-full"
-                isLoading={registerMutation.isPending}
-                onClick={handleRegister}
-                disabled={isFull}
-              >
-                {isFull ? 'Event Full' : registerMutation.isSuccess ? (
-                  <><CheckCircle className="h-4 w-4" /> Registered!</>
-                ) : isFree ? 'Register for Free' : `Pay ${formatCurrency(event.price)}`}
-              </Button>
-            ) : (
-              <Button variant="secondary" className="w-full" disabled>
-                Event Ended
-              </Button>
-            )}
-
-            {event.registrationDeadline && (
-              <p className="text-xs text-foreground-muted text-center mt-3">
-                Registration closes {formatDateTime(event.registrationDeadline)}
-              </p>
-            )}
-
-            <button className="w-full mt-3 flex items-center justify-center gap-1.5 text-xs text-foreground-muted hover:text-foreground transition-colors">
-              <Share2 className="h-3.5 w-3.5" />
-              Share event
-            </button>
-          </Card>
-
-          {/* Organizer */}
-          {event.createdBy && (
-            <Card>
-              <p className="text-xs text-foreground-muted mb-2">Organized by</p>
-              <div className="flex items-center gap-2">
-                <Avatar name="A.N.X Team" size="sm" />
-                <p className="text-sm font-medium text-foreground">A.N.X Team</p>
-              </div>
-            </Card>
           )}
         </div>
-      </div>
+      </section>
     </div>
-  );
+  )
 }

@@ -1,107 +1,124 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Figtree:wght@400;600;700;800&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+}
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 215 25% 10%;
+    --background: 0 0% 98%;
+    --foreground: 240 10% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 10%;
-    --primary: 217 91% 60%;
+    --card-foreground: 240 10% 10%;
+    
+    /* Vibrant Fuchsia/Pink */
+    --primary: 292 84% 61%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 215 20% 96%;
-    --secondary-foreground: 215 25% 10%;
-    --muted: 215 20% 96%;
-    --muted-foreground: 215 15% 45%;
-    --accent: 217 91% 95%;
-    --accent-foreground: 217 91% 30%;
-    --border: 215 20% 90%;
-    --input: 215 20% 90%;
-    --ring: 217 91% 60%;
-    --radius: 0.75rem;
+    
+    --secondary: 240 10% 96%;
+    --secondary-foreground: 240 10% 10%;
+    
+    --muted: 240 10% 96%;
+    --muted-foreground: 240 5% 45%;
+    
+    --accent: 292 84% 95%;
+    --accent-foreground: 292 84% 30%;
+    
+    --border: 240 10% 90%;
+    --input: 240 10% 90%;
+    --ring: 292 84% 61%;
+    --radius: 1rem;
+    
     --sidebar-bg: 0 0% 100%;
-    --sidebar-border: 215 20% 90%;
+    --sidebar-border: 240 10% 90%;
   }
 
   .dark {
-    --background: 215 30% 8%;
-    --foreground: 210 20% 97%;
-    --card: 215 28% 11%;
-    --card-foreground: 210 20% 97%;
-    --primary: 217 91% 60%;
+    /* Deep space neon aesthetic */
+    --background: 230 40% 6%;
+    --foreground: 0 0% 100%;
+    --card: 230 40% 10%;
+    --card-foreground: 0 0% 100%;
+    
+    /* Vibrant Neon Pink/Purple */
+    --primary: 290 90% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 215 28% 15%;
-    --secondary-foreground: 210 20% 97%;
-    --muted: 215 28% 15%;
-    --muted-foreground: 215 15% 60%;
-    --accent: 215 28% 18%;
-    --accent-foreground: 217 91% 70%;
-    --border: 215 25% 18%;
-    --input: 215 25% 18%;
-    --ring: 217 91% 60%;
-    --sidebar-bg: 215 30% 9%;
-    --sidebar-border: 215 25% 18%;
+    
+    --secondary: 230 40% 15%;
+    --secondary-foreground: 0 0% 100%;
+    
+    --muted: 230 40% 15%;
+    --muted-foreground: 230 20% 65%;
+    
+    --accent: 230 40% 20%;
+    --accent-foreground: 290 90% 70%;
+    
+    --border: 230 40% 18%;
+    --input: 230 40% 18%;
+    --ring: 290 90% 60%;
+    
+    --sidebar-bg: 230 40% 6%;
+    --sidebar-border: 230 40% 15%;
   }
 }
 
 @layer base {
-  * {
-    border-color: hsl(var(--border));
-  }
+  * { @apply border-border; }
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    @apply bg-background text-foreground;
     font-family: 'Inter', system-ui, sans-serif;
     font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  h1, h2, h3 {
-    font-family: 'Figtree', system-ui, sans-serif;
+  h1, h2, h3, h4, h5, h6 { 
+    font-family: 'Figtree', system-ui, sans-serif; 
+    letter-spacing: -0.02em;
   }
 }
 
 @layer utilities {
   .text-gradient {
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    background-image: linear-gradient(to right, #3b82f6, #06b6d4);
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500;
   }
   .glass {
-    background: rgba(255,255,255,0.07);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.1);
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.1)];
   }
-  .glass-light {
-    background: rgba(255,255,255,0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.3);
+  .glass-card {
+    @apply bg-[#0f1123]/80 backdrop-blur-md border border-purple-500/20 shadow-[0_0_15px_rgba(168,85,247,0.1)];
+  }
+  .neon-border {
+    @apply border border-transparent bg-clip-padding relative before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-gradient-to-r before:from-pink-500 before:to-purple-600 before:p-[1px];
+  }
+  .glow-text {
+    text-shadow: 0 0 10px rgba(236,72,153,0.5), 0 0 20px rgba(168,85,247,0.3);
+  }
+  .glow-icon {
+    filter: drop-shadow(0 0 8px rgba(168,85,247,0.6));
   }
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
-  }
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--border));
-    border-radius: 2px;
-  }
-  .no-scrollbar {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background-color: hsl(var(--border)); border-radius: 4px; }
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
 }

@@ -100,3 +100,24 @@ export function getAvatarColor(name: string): string {
   const index = name.charCodeAt(0) % colors.length;
   return colors[index];
 }
+
+export function validatePassword(password: string): { isValid: boolean; strength: 'weak' | 'fair' | 'good' | 'strong' } {
+  let score = 0
+  if (password.length >= 8) score++
+  if (password.length >= 12) score++
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++
+  if (/\d/.test(password)) score++
+  if (/[^a-zA-Z\d]/.test(password)) score++
+  const strength = score >= 4 ? 'strong' : score >= 3 ? 'good' : score >= 2 ? 'fair' : 'weak'
+  return { isValid: password.length >= 8, strength }
+}
+
+export function validateEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+export function formatNumber(num: number): string {
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
+  return num.toString()
+}

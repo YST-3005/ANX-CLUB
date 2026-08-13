@@ -1,1 +1,0 @@
-'use client'; import { use } from 'react'; import { useEffect } from 'react'; import { useRouter } from 'next/navigation'; export default function Page({ params }: { params: Promise<{id: string}> }) { const { id } = use(params); const router = useRouter(); useEffect(() => router.replace('/mentors/' + id), []); return null; }

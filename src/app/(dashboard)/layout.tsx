@@ -1,8 +1,8 @@
 'use client'
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { DashboardSidebar } from '@/frontend/components/dashboard/DashboardSidebar'
-import { DashboardHeader } from '@/frontend/components/dashboard/DashboardHeader'
+import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar'
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
