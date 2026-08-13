@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
-
+import { getAdminDb } from '@/lib/firebase/admin';
+import * as admin from 'firebase-admin';
+import crypto from 'crypto';
 export async function POST(request: Request) {
   try {
     const { phoneNumber, otp } = await request.json();
@@ -18,36 +19,71 @@ export async function POST(request: Request) {
       formattedPhone = formattedPhone.substring(3);
     }
 
-    const otpDocRef = adminDb.collection('otps').doc(formattedPhone);
-    const otpDoc = await otpDocRef.get();
+    const otpDocRef = getAdminDb().collection('otps').doc(formattedPhone);
 
-    if (!otpDoc.exists) {
-      return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 });
-    }
+    const result = await getAdminDb().runTransaction(async (transaction) => {
+      const otpDoc = await transaction.get(otpDocRef);
 
-    const data = otpDoc.data();
-    
-    if (data?.otp !== otp) {
-      return NextResponse.json({ error: 'Incorrect OTP' }, { status: 400 });
-    }
+      if (!otpDoc.exists) {
+        throw new Error("INVALID_OTP");
+      }
 
-    const now = new Date();
-    if (data?.expiresAt.toDate() < now) {
-      // OTP expired
-      await otpDocRef.delete();
-      return NextResponse.json({ error: 'OTP has expired' }, { status: 400 });
-    }
+      const data = otpDoc.data()!;
+      
+      const now = new Date();
+      if (data.expiresAt.toDate() < now) {
+        transaction.delete(otpDocRef);
+        throw new Error("EXPIRED_OTP");
+      }
 
-    // OTP is valid
-    // Delete it so it can't be used again
-    await otpDocRef.delete();
+      if (data.attempts >= data.maxAttempts) {
+        transaction.delete(otpDocRef);
+        throw new Error("MAX_ATTEMPTS_REACHED");
+      }
+
+      const hashedInputOtp = crypto.createHash('sha256').update(otp).digest('hex');
+      
+      if (data.otpHash !== hashedInputOtp) {
+        transaction.update(otpDocRef, {
+          attempts: admin.firestore.FieldValue.increment(1)
+        });
+        throw new Error("INCORRECT_OTP");
+      }
+
+      // OTP is valid
+      transaction.delete(otpDocRef);
+      return true;
+    });
 
     return NextResponse.json({ success: true, message: 'OTP verified successfully' });
   } catch (error: any) {
     console.error('Error verifying OTP:', error);
+    
+    let errorCode = "INTERNAL_ERROR";
+    let message = "Failed to verify OTP";
+    let status = 500;
+    
+    if (error.message === "INVALID_OTP") {
+      errorCode = "INVALID_OTP";
+      message = "Invalid or missing OTP";
+      status = 400;
+    } else if (error.message === "EXPIRED_OTP") {
+      errorCode = "EXPIRED_OTP";
+      message = "OTP has expired";
+      status = 400;
+    } else if (error.message === "MAX_ATTEMPTS_REACHED") {
+      errorCode = "MAX_ATTEMPTS_REACHED";
+      message = "Too many failed attempts. Please request a new OTP.";
+      status = 429;
+    } else if (error.message === "INCORRECT_OTP") {
+      errorCode = "INCORRECT_OTP";
+      message = "Incorrect OTP";
+      status = 400;
+    }
+
     return NextResponse.json(
-      { error: error.message || 'Failed to verify OTP' },
-      { status: 500 }
+      { success: false, error: { code: errorCode, message } },
+      { status }
     );
   }
 }

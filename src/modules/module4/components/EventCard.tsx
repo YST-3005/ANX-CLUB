@@ -30,7 +30,7 @@ function isPastDeadline(registrationDeadline?: string | null) {
   return new Date() > new Date(registrationDeadline);
 }
 
-export default function EventCard({ event, userRegisteredIds = [], onRegistered }: EventCardProps) {
+function EventCard({ event, userRegisteredIds = [], onRegistered }: EventCardProps) {
   const [showModal, setShowModal] = useState(false);
   const { day, month, time } = formatDate(event.date);
   const isRegistered = userRegisteredIds.includes(event.id);
@@ -129,3 +129,12 @@ export default function EventCard({ event, userRegisteredIds = [], onRegistered 
     </>
   );
 }
+
+import React from 'react';
+export default React.memo(EventCard, (prevProps, nextProps) => {
+  return (
+    prevProps.event.id === nextProps.event.id &&
+    prevProps.userRegisteredIds?.length === nextProps.userRegisteredIds?.length &&
+    prevProps.userRegisteredIds?.every(id => nextProps.userRegisteredIds?.includes(id))
+  );
+});

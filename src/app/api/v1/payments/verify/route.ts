@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRazorpaySignature } from "@/lib/payments/razorpay";
-import { adminDb } from "@/lib/firebase/admin";
+import { getAdminDb } from '@/lib/firebase/admin';
+import { authenticate } from '@/lib/auth';
 import * as admin from "firebase-admin";
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const userId = await authenticate(request);
     if (!userId) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
@@ -35,25 +36,45 @@ export async function POST(request: NextRequest) {
     }
 
     // Execute atomic transaction for seat booking and registration creation
-    const result = await adminDb.runTransaction(async (transaction) => {
-      const eventRef = adminDb.collection("events").doc(eventId);
-      const paymentRef = adminDb.collection("payments").doc(razorpay_order_id);
-      const regQuery = adminDb.collection("eventRegistrations")
+    const result = await getAdminDb().runTransaction(async (transaction) => {
+      const eventRef = getAdminDb().collection("events").doc(eventId);
+      const paymentRef = getAdminDb().collection("payments").doc(razorpay_order_id);
+      
+      const orderRegQuery = getAdminDb().collection("eventRegistrations")
         .where("orderId", "==", razorpay_order_id)
         .limit(1);
+        
+      const userRegQuery = getAdminDb().collection("eventRegistrations")
+        .where("eventId", "==", eventId)
+        .where("userId", "==", userId)
+        .limit(1);
 
-      const [eventDoc, paymentDoc, regSnap] = await Promise.all([
+      const [eventDoc, paymentDoc, orderRegSnap, userRegSnap] = await Promise.all([
         transaction.get(eventRef),
         transaction.get(paymentRef),
-        transaction.get(regQuery),
+        transaction.get(orderRegQuery),
+        transaction.get(userRegQuery),
       ]);
 
       if (!eventDoc.exists) throw new Error("EVENT_NOT_FOUND");
       if (!paymentDoc.exists) throw new Error("PAYMENT_NOT_FOUND");
 
-      // Idempotency check: prevent duplicate registration processing
-      if (!regSnap.empty) {
-        return { registrationId: regSnap.docs[0].id, idempotent: true };
+      // Idempotency check: prevent duplicate registration processing for the same order
+      if (!orderRegSnap.empty) {
+        return { registrationId: orderRegSnap.docs[0].id, idempotent: true };
+      }
+      
+      // Prevent duplicate registration for the same user on the same event
+      if (!userRegSnap.empty) {
+        throw new Error("USER_ALREADY_REGISTERED");
+      }
+      
+      const paymentData = paymentDoc.data()!;
+      if (paymentData.eventId !== eventId) {
+        throw new Error("PAYMENT_EVENT_MISMATCH");
+      }
+      if (paymentData.userId !== userId) {
+         throw new Error("PAYMENT_USER_MISMATCH");
       }
 
       const eventData = eventDoc.data()!;
@@ -64,7 +85,7 @@ export async function POST(request: NextRequest) {
         throw new Error("EVENT_SOLD_OUT");
       }
 
-      const regRef = adminDb.collection("eventRegistrations").doc();
+      const regRef = getAdminDb().collection("eventRegistrations").doc();
       const registrationData = {
         eventId,
         eventTitle: eventData.title,
@@ -75,7 +96,7 @@ export async function POST(request: NextRequest) {
         paymentStatus: "paid",
         paymentId: razorpay_payment_id,
         orderId: razorpay_order_id,
-        amount: paymentDoc.data()!.amount,
+        amount: paymentData.amount,
         registeredAt: admin.firestore.FieldValue.serverTimestamp(),
         status: "confirmed",
       };

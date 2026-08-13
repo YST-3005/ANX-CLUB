@@ -1,33 +1,43 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { doc, getDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { NextResponse, NextRequest } from 'next/server';
+import { getAdminDb } from '@/lib/firebase/admin';
+import { authenticate } from '@/lib/auth';
 import { sendEmail } from '@/lib/resend';
 import { mentorBookingApprovalEmail, generateICS } from '@/lib/email-templates';
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const userId = await authenticate(request);
+    if (!userId) {
+      return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
+    }
+
+    const userDoc = await getAdminDb().collection("users").doc(userId).get();
+    if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
+      return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden" } }, { status: 403 });
+    }
+
     const body = await request.json();
     const { status } = body;
 
     if (!['Approved', 'Rejected', 'Completed'].includes(status)) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+      return NextResponse.json({ success: false, error: { code: "BAD_REQUEST", message: "Invalid status" } }, { status: 400 });
     }
 
-    const docRef = doc(db, 'mentorRequests', params.id);
-    const docSnap = await getDoc(docRef);
+    const docRef = getAdminDb().collection('mentorRequests').doc(params.id);
+    const docSnap = await docRef.get();
 
-    if (!docSnap.exists()) {
-      return NextResponse.json({ error: 'Request not found' }, { status: 404 });
+    if (!docSnap.exists) {
+      return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: "Request not found" } }, { status: 404 });
     }
 
-    const requestData = docSnap.data();
+    const requestData = docSnap.data()!;
 
     let meetingLink = requestData.meetingLink;
     if (status === 'Approved' && !meetingLink) {
       meetingLink = `https://meet.jit.si/Mentorship-${params.id}-${Math.random().toString(36).substring(7)}`;
     }
 
-    await updateDoc(docRef, { 
+    await docRef.update({ 
       status,
       ...(meetingLink ? { meetingLink } : {})
     });
@@ -46,7 +56,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       }
 
       // Add in-app notification
-      await addDoc(collection(db, 'notifications'), {
+      await getAdminDb().collection('notifications').add({
         userId: requestData.memberId,
         title: `Mentor Session ${status}`,
         message: `Your mentoring session with ${requestData.mentorName} has been ${status.toLowerCase()}.`,
@@ -66,6 +76,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ success: true, status });
   } catch (error: any) {
     console.error('Error updating mentor request:', error);
-    return NextResponse.json({ error: error.message || 'Error updating request' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: { code: "INTERNAL_ERROR", message: "Error updating request" } }, 
+      { status: 500 }
+    );
   }
 }

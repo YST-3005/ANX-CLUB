@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
+import {getAdminDb} from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,13 +8,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
 
-    const snapshot = await adminDb
-      .collection('mentors')
+    const snapshot = await getAdminDb().collection('mentors')
       .orderBy('createdAt', 'desc')
       .limit(limit)
       .get();
 
-    const mentors = snapshot.docs.map(doc => ({
+    const mentors = snapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     }));

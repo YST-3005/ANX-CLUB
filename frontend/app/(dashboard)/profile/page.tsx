@@ -127,7 +127,7 @@ export default function ProfilePage() {
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 text-xs font-semibold bg-primary hover:bg-primary/95 text-primary-foreground rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                className="px-4 py-2 text-xs font-semibold bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:opacity-90 text-white rounded-xl transition-all shadow-[0_0_15px_rgba(217,70,239,0.4)] flex items-center gap-1.5"
               >
                 <Check className="w-3.5 h-3.5" /> Save Changes
               </button>
@@ -135,7 +135,7 @@ export default function ProfilePage() {
           ) : (
             <button
               onClick={handleStartEdit}
-              className="px-4 py-2 text-xs font-semibold bg-primary hover:bg-primary/95 text-primary-foreground rounded-xl transition-all shadow-md flex items-center gap-1.5"
+              className="px-4 py-2 text-xs font-semibold bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:opacity-90 text-white rounded-xl transition-all shadow-[0_0_15px_rgba(217,70,239,0.4)] flex items-center gap-1.5"
             >
               <Edit2 className="w-3.5 h-3.5" /> Edit Profile
             </button>
@@ -144,8 +144,8 @@ export default function ProfilePage() {
       </div>
 
       {/* Main Profile Showcase Card */}
-      <section className="bg-card border border-border/50 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-center md:items-start gap-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-3xl pointer-events-none" />
+      <section className="glass border border-white/10 rounded-3xl p-6 md:p-8 shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col md:flex-row items-center md:items-start gap-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-fuchsia-500/10 to-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Avatar */}
         <div className="relative shrink-0">
@@ -154,7 +154,7 @@ export default function ProfilePage() {
             alt={profile.fullName}
             className="w-28 h-28 md:w-32 md:h-32 rounded-3xl object-cover ring-4 ring-muted"
           />
-          <span className="absolute -bottom-2 -right-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white p-1.5 rounded-xl shadow-lg border border-white dark:border-card">
+          <span className="absolute -bottom-2 -right-2 bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white p-1.5 rounded-xl shadow-[0_0_15px_rgba(217,70,239,0.6)] border border-white/20">
             <Award className="w-4 h-4" />
           </span>
         </div>
@@ -171,9 +171,9 @@ export default function ProfilePage() {
                   className="px-3 py-1.5 bg-muted border border-border rounded-xl text-lg font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-full max-w-sm"
                 />
               ) : (
-                <h2 className="font-display text-2xl font-extrabold text-foreground">{profile.fullName}</h2>
+                <h2 className="font-display text-2xl font-extrabold text-white">{profile.fullName}</h2>
               )}
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 text-[10px] font-semibold uppercase tracking-wider mx-auto md:mx-0">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20 text-[10px] font-semibold uppercase tracking-wider mx-auto md:mx-0 shadow-[0_0_10px_rgba(217,70,239,0.1)]">
                 {dbProfile?.role || MOCK_USER.role}
               </span>
             </div>
@@ -205,8 +205,8 @@ export default function ProfilePage() {
       {/* Main Info Blocks Grid */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Contact & Socials */}
-        <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm space-y-6">
-          <h3 className="font-display text-base font-bold text-foreground">Contact & Connections</h3>
+        <div className="glass border border-white/10 rounded-2xl p-6 shadow-xl space-y-6 hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
+          <h3 className="font-display text-base font-bold text-white">Contact & Connections</h3>
 
           <div className="space-y-4">
             {/* Email (Readonly) */}
@@ -299,9 +299,9 @@ export default function ProfilePage() {
         {/* Right 2 Columns: Skills, Interests & Career Info */}
         <div className="lg:col-span-2 space-y-6">
           {/* Skills Management */}
-          <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-border/40 pb-3">
-              <h3 className="font-display text-base font-bold text-foreground">Skills Inventory</h3>
+          <div className="glass border border-white/10 rounded-2xl p-6 shadow-xl space-y-4 hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="font-display text-base font-bold text-white">Skills Inventory</h3>
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{isEditing ? tempProfile.skills.length : profile.skills.length} skills listed</span>
             </div>
 
@@ -310,7 +310,7 @@ export default function ProfilePage() {
               {(isEditing ? tempProfile.skills : profile.skills).map((skill: string) => (
                 <span
                   key={skill}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-muted border border-border text-foreground text-xs font-semibold rounded-xl"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-black/40 border border-white/10 text-white text-xs font-semibold rounded-xl"
                 >
                   {skill}
                   {isEditing && (
@@ -337,7 +337,7 @@ export default function ProfilePage() {
                 />
                 <button
                   type="submit"
-                  className="p-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-md transition-colors"
+                  className="p-2 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:opacity-90 text-white rounded-xl shadow-[0_0_15px_rgba(217,70,239,0.4)] transition-colors border-none"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
@@ -346,8 +346,8 @@ export default function ProfilePage() {
           </div>
 
           {/* Education Details Card */}
-          <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm space-y-4">
-            <h3 className="font-display text-base font-bold text-foreground">Education Details</h3>
+          <div className="glass border border-white/10 rounded-2xl p-6 shadow-xl space-y-4 hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
+            <h3 className="font-display text-base font-bold text-white">Education Details</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1">

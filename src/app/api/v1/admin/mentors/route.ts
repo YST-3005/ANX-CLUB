@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { collection, addDoc } from 'firebase/firestore';
+import { NextResponse, NextRequest } from 'next/server';
+import { getAdminDb } from '@/lib/firebase/admin';
+import { authenticate } from '@/lib/auth';
 
-export async function POST(request: Request) {
+
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, role, company, bio, linkedin, topics, imageUrl, ownerEmail } = body;
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await addDoc(collection(db, 'mentors'), mentorData);
+    const docRef = await getAdminDb().collection('mentors').add(mentorData);
 
     return NextResponse.json({ id: docRef.id, ...mentorData }, { status: 201 });
   } catch (error: any) {

@@ -7,7 +7,9 @@ import { getAnnouncements } from '@/modules/module2/services/announcementService
 import { getProjects } from '@/modules/module2/services/projectService';
 import { DashboardResponse } from '@/modules/module2/types/dashboard';
 import { getRecommendationsByUserId, getUserByIdOrEmail } from '@/modules/module2/data';
-import { adminDb as db } from '@/lib/firebase/admin';
+import { getAdminDb } from '@/lib/firebase/admin';
+import { authenticate } from '@/lib/auth';
+const db = getAdminDb();
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,19 +18,21 @@ export async function GET(req: NextRequest) {
     const failParam = searchParams.get('fail') || '';
     const failList = failParam.split(',').map(s => s.trim().toLowerCase());
 
-    // Security Gate: In production/Firestore mode, reject insecure query param inputs.
-    // We require the x-user-id header (which would be provided by a verified gateway/middleware).
     let userId = '';
+    const authId = await authenticate(req);
+    
+    // Security Gate: In production/Firestore mode, reject insecure query param inputs.
+    // We require the authenticated user ID (which is verified by the auth helper).
     if (db && !mock) {
-      userId = req.headers.get('x-user-id') || '';
-      if (!userId) {
+      if (!authId) {
         return NextResponse.json(
-          { error: 'Unauthorized: Missing x-user-id header' },
+          { error: 'Unauthorized: Missing or invalid token' },
           { status: 401 }
         );
       }
+      userId = authId;
     } else {
-      userId = searchParams.get('userId') || req.headers.get('x-user-id') || 'default_user_123';
+      userId = searchParams.get('userId') || authId || 'default_user_123';
     }
 
     // Identity Resolution: Resolve email address to the unique UID if email is passed.

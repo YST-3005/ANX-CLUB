@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase/admin";
+import { getAdminDb } from '@/lib/firebase/admin';
+import { authenticate } from '@/lib/auth';
 import * as admin from "firebase-admin";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
     const lastId = searchParams.get("lastId");
 
-    let queryRef: admin.firestore.Query = adminDb.collection("events")
+    let queryRef: admin.firestore.Query = getAdminDb().collection("events")
       .where("isActive", "==", true);
 
     if (typeFilter && typeFilter !== "All") {
@@ -27,14 +28,14 @@ export async function GET(request: NextRequest) {
     queryRef = queryRef.orderBy("date", "desc").limit(limit);
 
     if (lastId) {
-      const lastDoc = await adminDb.collection("events").doc(lastId).get();
+      const lastDoc = await getAdminDb().collection("events").doc(lastId).get();
       if (lastDoc.exists) {
         queryRef = queryRef.startAfter(lastDoc);
       }
     }
 
     const snapshot = await queryRef.get();
-    const events = snapshot.docs.map((doc) => ({
+    const events = snapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data(),
     }));
@@ -71,12 +72,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const userId = await authenticate(request);
     if (!userId) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    const userDoc = await adminDb.collection("users").doc(userId).get();
+    const userDoc = await getAdminDb().collection("users").doc(userId).get();
     if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
       return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
     }
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
       status: "Approved",
     };
 
-    const docRef = await adminDb.collection("events").add(eventData);
+    const docRef = await getAdminDb().collection("events").add(eventData);
 
     return NextResponse.json(
       { success: true, message: "Event created.", data: { id: docRef.id, ...eventData } },

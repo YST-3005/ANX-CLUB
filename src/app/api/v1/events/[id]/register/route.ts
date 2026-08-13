@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase/admin";
+import { getAdminDb } from "@/lib/firebase/admin";
+import { authenticate } from "@/lib/auth";
 import * as admin from "firebase-admin";
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const userId = await authenticate(request);
     if (!userId) {
       return NextResponse.json({ success: false, message: "Please log in to register." }, { status: 401 });
     }
 
     const { id: eventId } = params;
-    const eventDoc = await adminDb.collection("events").doc(eventId).get();
+    const eventDoc = await getAdminDb().collection("events").doc(eventId).get();
 
     if (!eventDoc.exists || eventDoc.data()?.isActive === false) {
       return NextResponse.json({ success: false, message: "Event not found." }, { status: 404 });
@@ -36,8 +37,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     // Duplicate registration check
-    const existingReg = await adminDb
-      .collection("eventRegistrations")
+    const existingReg = await getAdminDb().collection("eventRegistrations")
       .where("userId", "==", userId)
       .where("eventId", "==", eventId)
       .limit(1)
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ success: false, message: "You are already registered for this event." }, { status: 409 });
     }
 
-    const userDoc = await adminDb.collection("users").doc(userId).get();
+    const userDoc = await getAdminDb().collection("users").doc(userId).get();
     const user = userDoc.data() || {};
 
     // Member-only check
@@ -114,15 +114,15 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       status: "confirmed",
     };
 
-    const batch = adminDb.batch();
-    const regRef = adminDb.collection("eventRegistrations").doc();
+    const batch = getAdminDb().batch();
+    const regRef = getAdminDb().collection("eventRegistrations").doc();
     batch.set(regRef, registrationData);
 
     const updateFields: any = {};
     updateFields.seatsBooked = admin.firestore.FieldValue.increment(1);
     updateFields.registeredCount = admin.firestore.FieldValue.increment(1);
 
-    batch.update(adminDb.collection("events").doc(eventId), updateFields);
+    batch.update(getAdminDb().collection("events").doc(eventId), updateFields);
     await batch.commit();
 
     return NextResponse.json(

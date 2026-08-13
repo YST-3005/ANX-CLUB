@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   Sparkles, LayoutDashboard, Calendar, Users, 
-  Award, Bell, BookOpen, User, ShieldAlert, LogOut, X 
+  Award, Bell, BookOpen, User, ShieldAlert, LogOut, X, MessageSquare 
 } from 'lucide-react'
 import { MOCK_USER } from '@/frontend/lib/constants'
 import { cn } from '@/frontend/lib/utils'
@@ -19,6 +19,7 @@ const navItems = [
   { label: 'Events', href: '/events', icon: Calendar },
   { label: 'Mentors', href: '/mentors', icon: Users },
   { label: 'Resources', href: '/resources', icon: BookOpen },
+  { label: 'Community', href: '/community', icon: MessageSquare },
   { label: 'Announcements', href: '/announcements', icon: Bell },
   { label: 'Membership', href: '/membership', icon: Award },
   { label: 'My Profile', href: '/profile', icon: User },
@@ -29,12 +30,14 @@ export function DashboardSidebar({ onClose }: SidebarProps) {
   const pathname = usePathname()
 
   return (
-    <div className="h-full flex flex-col justify-between bg-card text-card-foreground border-r border-border/40 select-none">
+    <div className="h-full flex flex-col justify-between bg-background text-foreground border-r border-border/10 select-none z-10 relative">
+      {/* Decorative light glow for sidebar */}
+      <div className="absolute top-0 left-[-50%] w-full h-96 bg-fuchsia-600/5 blur-[120px] rounded-full pointer-events-none" />
       {/* Top Brand Block */}
       <div className="p-6">
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-500 via-cyan-500 to-teal-400 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <Link href="/" className="flex items-center gap-2.5 z-10">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-fuchsia-600 via-purple-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-fuchsia-500/20">
               <Sparkles className="w-4.5 h-4.5 text-white" />
             </div>
             <div className="flex flex-col">
@@ -62,16 +65,16 @@ export function DashboardSidebar({ onClose }: SidebarProps) {
               href={item.href}
               onClick={onClose}
               className={cn(
-                "relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group",
+                "relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group z-10",
                 isActive 
-                  ? "text-primary bg-primary/5 dark:bg-primary/10" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  ? "text-primary bg-primary/10 shadow-[0_0_15px_rgba(217,70,239,0.05)] border border-primary/20" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5 border border-transparent"
               )}
             >
               {isActive && (
                 <motion.div 
                   layoutId="activeSidebarIndicator"
-                  className="absolute left-0 w-1 h-6 rounded-r-full bg-primary"
+                  className="absolute left-0 w-1 h-6 rounded-r-full bg-primary shadow-[0_0_10px_rgba(217,70,239,0.8)]"
                   transition={{ type: "spring", stiffness: 380, damping: 30 }}
                 />
               )}
@@ -88,7 +91,7 @@ export function DashboardSidebar({ onClose }: SidebarProps) {
       </nav>
 
       {/* Profile Card & Logout Footer */}
-      <div className="p-4 border-t border-border/40 bg-muted/20">
+      <div className="p-4 border-t border-border/10 bg-black/20 z-10">
         <div className="flex items-center gap-3 p-2 rounded-xl">
           <img
             src={MOCK_USER.avatar}

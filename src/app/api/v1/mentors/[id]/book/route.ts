@@ -1,22 +1,30 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { collection, addDoc, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { NextResponse, NextRequest } from 'next/server';
+import { getAdminDb } from '@/lib/firebase/admin';
+import { authenticate } from '@/lib/auth';
 import { sendEmail } from '@/lib/resend';
 import { mentorBookingRequestEmail } from '@/lib/email-templates';
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const userId = await authenticate(request);
+    
     const body = await request.json();
-    const { userId, userEmail, userName, mentorName, topic, date, time, message } = body;
+    const { userEmail, userName, mentorName, topic, date, time, message } = body;
 
-    if (!userId || !userEmail || !topic || !date || !time) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    // Use token userId over body userId for security
+    const actualUserId = userId || body.userId;
+
+    if (!actualUserId || !userEmail || !topic || !date || !time) {
+      return NextResponse.json(
+        { success: false, error: { code: "BAD_REQUEST", message: "Missing required fields" } }, 
+        { status: 400 }
+      );
     }
 
     const requestData = {
       mentorId: params.id,
       mentorName,
-      memberId: userId,
+      memberId: actualUserId,
       memberName: userName,
       memberEmail: userEmail,
       topic,
@@ -27,21 +35,22 @@ export async function POST(request: Request, { params }: { params: { id: string 
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await addDoc(collection(db, 'mentorRequests'), requestData);
+    const docRef = await getAdminDb().collection('mentorRequests').add(requestData);
 
     // Send notification email to the member
     await sendEmail(userEmail, "Mentor Session Requested", mentorBookingRequestEmail(mentorName, date));
 
     // Create a real-time notification for the mentor if their account exists
     try {
-      const mentorDoc = await getDoc(doc(db, 'mentors', params.id));
-      if (mentorDoc.exists() && mentorDoc.data().ownerEmail) {
-        const userQ = query(collection(db, 'users'), where('email', '==', mentorDoc.data().ownerEmail));
-        const userSnap = await getDocs(userQ);
+      const mentorDoc = await getAdminDb().collection('mentors').doc(params.id).get();
+      if (mentorDoc.exists && mentorDoc.data()!.ownerEmail) {
+        const userSnap = await getAdminDb().collection('users')
+          .where('email', '==', mentorDoc.data()!.ownerEmail)
+          .get();
         
         if (!userSnap.empty) {
           const mentorUserId = userSnap.docs[0].id;
-          await addDoc(collection(db, 'notifications'), {
+          await getAdminDb().collection('notifications').add({
             userId: mentorUserId,
             title: 'New Session Request',
             message: `${userName} requested a session on ${date}.`,
@@ -55,9 +64,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
       console.error('Failed to create mentor notification:', notifErr);
     }
 
-    return NextResponse.json({ id: docRef.id, ...requestData }, { status: 201 });
+    return NextResponse.json({ success: true, data: { id: docRef.id, ...requestData } }, { status: 201 });
   } catch (error: any) {
     console.error('Error submitting mentor request:', error);
-    return NextResponse.json({ error: error.message || 'Error submitting request' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: { code: "INTERNAL_ERROR", message: "Error submitting request" } }, 
+      { status: 500 }
+    );
   }
 }
+

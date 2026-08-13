@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRazorpayOrder } from "@/lib/payments/razorpay";
-import { adminDb } from "@/lib/firebase/admin";
+import { getAdminDb } from "@/lib/firebase/admin";
+import { authenticate } from "@/lib/auth";
 import * as admin from "firebase-admin";
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const userId = await authenticate(request);
     if (!userId) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "eventId is required." }, { status: 400 });
     }
 
-    const eventDoc = await adminDb.collection("events").doc(eventId).get();
+    const eventDoc = await getAdminDb().collection("events").doc(eventId).get();
     if (!eventDoc.exists || eventDoc.data()?.isActive === false) {
       return NextResponse.json({ success: false, message: "Event not found." }, { status: 404 });
     }
@@ -31,14 +32,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine pricing
-    const userDoc = await adminDb.collection("users").doc(userId).get();
+    const userDoc = await getAdminDb().collection("users").doc(userId).get();
     const user = userDoc.data() || {};
     const isPremium = user.membershipType === "premium" || user.role === "Premium Member";
     const amount = isPremium && event.premiumPrice ? event.premiumPrice : event.price;
 
     // Check if already registered
-    const existingReg = await adminDb
-      .collection("eventRegistrations")
+    const existingReg = await getAdminDb().collection("eventRegistrations")
       .where("userId", "==", userId)
       .where("eventId", "==", eventId)
       .limit(1)
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Store pending payment record
-    await adminDb.collection("payments").doc(order.id).set({
+    await getAdminDb().collection("payments").doc(order.id).set({
       orderId: order.id,
       eventId,
       eventTitle: event.title,

@@ -8,9 +8,9 @@ import {
 } from 'lucide-react'
 import { MOCK_MENTORS, SKILLS } from '@/frontend/lib/constants'
 import toast from 'react-hot-toast'
-
 import { useAuth } from '@/modules/module3/components/AuthContext'
 import { useEffect } from 'react'
+import { mentorsApi } from '@/frontend/lib/api'
 
 export default function MentorsPage() {
   const { user, profile } = useAuth()
@@ -30,10 +30,9 @@ export default function MentorsPage() {
   useEffect(() => {
     const fetchMentors = async () => {
       try {
-        const res = await fetch('/api/v1/mentors')
-        const data = await res.json()
-        if (res.ok) {
-          setMentors(data)
+        const res = await mentorsApi.getAll()
+        if (res.data) {
+          setMentors(res.data)
         } else {
           setMentors(MOCK_MENTORS)
         }
@@ -72,25 +71,13 @@ export default function MentorsPage() {
     }
     
     try {
-      const token = await user.getIdToken()
-      const res = await fetch(`/api/v1/mentors/${activeBookingMentor.id}/book`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          memberId: user.uid,
-          memberName: profile?.fullName || "Anonymous Member",
-          dateTime: `${bookingDetails.date} ${bookingDetails.time}`,
-          status: "Pending",
-          reason: bookingDetails.reason,
-        }),
+      await mentorsApi.bookSession(activeBookingMentor.id, {
+        memberId: user.uid,
+        memberName: profile?.fullName || "Anonymous Member",
+        dateTime: `${bookingDetails.date} ${bookingDetails.time}`,
+        status: "Pending",
+        reason: bookingDetails.reason,
       })
-
-      if (!res.ok) {
-        throw new Error('Failed to book session')
-      }
 
       toast.success(`Session booked with ${activeBookingMentor.name} for ${bookingDetails.date} @ ${bookingDetails.time}! Check calendar inbox. 📅`)
       setActiveBookingMentor(null)
@@ -110,7 +97,7 @@ export default function MentorsPage() {
       </div>
 
       {/* Filter Utilities */}
-      <section className="bg-card border border-border/50 rounded-2xl p-5 shadow-sm space-y-4">
+      <section className="glass rounded-2xl p-5 shadow-xl space-y-4">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           {/* Search bar */}
           <div className="relative w-full md:max-w-md group">
@@ -120,7 +107,7 @@ export default function MentorsPage() {
               placeholder="Search mentors by name, role, or company..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-muted/40 border border-border/60 rounded-xl text-xs placeholder:text-muted-foreground/80 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-card transition-all"
+              className="w-full pl-10 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs placeholder:text-muted-foreground/80 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-white"
             />
           </div>
 
@@ -129,7 +116,7 @@ export default function MentorsPage() {
             <select
               value={selectedSkill}
               onChange={e => setSelectedSkill(e.target.value)}
-              className="w-full md:w-48 px-3.5 py-2.5 bg-muted/40 border border-border rounded-xl text-xs font-semibold text-foreground focus:outline-none"
+              className="w-full md:w-48 px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               <option value="all">Filter by Skill Tag</option>
               {SKILLS.slice(0, 8).map((sk: string) => <option key={sk} value={sk}>{sk}</option>)}
@@ -150,7 +137,7 @@ export default function MentorsPage() {
             {filteredMentors.map((men: any) => (
               <div
                 key={men.id}
-                className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-5 justify-between hover:border-primary/20 transition-all hover:shadow-md group relative overflow-hidden"
+                className="glass rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-5 justify-between hover:border-primary/30 transition-all hover:shadow-[0_0_20px_rgba(217,70,239,0.15)] group relative overflow-hidden"
               >
                 {men.isPremiumOnly && (
                   <div className="absolute top-0 right-0 p-0 hover:scale-105 pointer-events-none">
@@ -191,7 +178,7 @@ export default function MentorsPage() {
                     <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Skills & Specialty</span>
                     <div className="flex flex-wrap gap-1">
                       {(Array.isArray(men.skills) ? men.skills : (men.skills ? men.skills.split(', ') : [])).slice(0, 3).map((sk: string) => (
-                        <span key={sk} className="text-[9px] font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                        <span key={sk} className="text-[9px] font-semibold px-2 py-0.5 rounded bg-white/10 text-white">
                           {sk}
                         </span>
                       ))}
@@ -200,7 +187,7 @@ export default function MentorsPage() {
 
                   <button
                     onClick={() => setActiveBookingMentor(men)}
-                    className="w-full py-2.5 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-semibold shadow transition-all flex items-center justify-center gap-1.5 shadow-primary/10"
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:opacity-90 text-white text-xs font-semibold shadow transition-all flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(217,70,239,0.4)] border-none"
                   >
                     <Calendar className="w-3.5 h-3.5" /> Book 1-on-1 Session
                   </button>
@@ -238,11 +225,11 @@ export default function MentorsPage() {
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="bg-card border border-border rounded-3xl w-full max-w-md shadow-2xl relative overflow-hidden z-10"
+              className="glass rounded-3xl w-full max-w-md shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden z-10"
             >
-              <div className="p-6 border-b border-border/40 flex justify-between items-center bg-muted/20">
-                <span className="text-xs font-bold uppercase tracking-wider text-foreground">Schedule Mentoring Slot</span>
-                <button onClick={() => setActiveBookingMentor(null)} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
+              <div className="p-6 border-b border-white/10 flex justify-between items-center bg-black/20">
+                <span className="text-xs font-bold uppercase tracking-wider text-white">Schedule Mentoring Slot</span>
+                <button onClick={() => setActiveBookingMentor(null)} className="p-1 rounded-lg hover:bg-white/10 text-white">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -269,9 +256,9 @@ export default function MentorsPage() {
                       required 
                       value={bookingDetails.date}
                       onChange={e => setBookingDetails(p => ({ ...p, date: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 bg-muted border border-border rounded-xl text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" 
+                      className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-primary/40" 
                     />
-                    <p className="text-[9px] text-muted-foreground">Availability notes: <strong className="font-bold text-foreground">{activeBookingMentor.availability}</strong></p>
+                    <p className="text-[9px] text-muted-foreground">Availability notes: <strong className="font-bold text-white">{activeBookingMentor.availability}</strong></p>
                   </div>
 
                   {/* Select Time */}
@@ -282,7 +269,7 @@ export default function MentorsPage() {
                     <select
                       value={bookingDetails.time}
                       onChange={e => setBookingDetails(p => ({ ...p, time: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 bg-muted border border-border rounded-xl text-xs text-foreground focus:outline-none"
+                      className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
                     >
                       <option value="10:00 AM">10:00 AM - 11:00 AM IST</option>
                       <option value="02:00 PM">02:00 PM - 03:00 PM IST</option>
@@ -302,7 +289,7 @@ export default function MentorsPage() {
                       placeholder="What would you like to focus on? (e.g. React 19 architecture review, resume audit, system designs...)"
                       value={bookingDetails.reason}
                       onChange={e => setBookingDetails(p => ({ ...p, reason: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 bg-muted border border-border rounded-xl text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60 leading-relaxed" 
+                      className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground/60 leading-relaxed" 
                     />
                   </div>
                 </div>
@@ -314,7 +301,7 @@ export default function MentorsPage() {
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-primary hover:bg-primary/95 text-primary-foreground font-bold rounded-xl text-xs transition-all shadow-md shadow-primary/20 flex items-center justify-center gap-1.5"
+                  className="w-full py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs transition-all shadow-[0_0_15px_rgba(217,70,239,0.4)] flex items-center justify-center gap-1.5 border-none"
                 >
                   <Check className="w-4 h-4" /> Finalize Mentoring Session
                 </button>

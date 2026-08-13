@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb as db } from '@/lib/firebase/admin';
+import {getAdminDb} from '@/lib/firebase/admin';
+const db = getAdminDb();
 
 export const dynamic = 'force-dynamic';
 

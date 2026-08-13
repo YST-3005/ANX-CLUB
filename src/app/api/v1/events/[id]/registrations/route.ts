@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase/admin";
+import { getAdminDb } from "@/lib/firebase/admin";
+import { authenticate } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const userId = await authenticate(request);
     if (!userId) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    const userDoc = await adminDb.collection("users").doc(userId).get();
+    const userDoc = await getAdminDb().collection("users").doc(userId).get();
     if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
       return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
     }
@@ -19,12 +20,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const { searchParams } = new URL(request.url);
     const format = searchParams.get("format");
 
-    const snapshot = await adminDb
-      .collection("eventRegistrations")
+    const snapshot = await getAdminDb().collection("eventRegistrations")
       .where("eventId", "==", eventId)
       .get();
 
-    const registrations = snapshot.docs.map((doc) => {
+    const registrations = snapshot.docs.map((doc: any) => {
       const data = doc.data() as any;
       return {
         id: doc.id,
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       ]);
 
       const csv = [headers, ...rows]
-        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+        .map((row) => row.map((cell: any) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
         .join("\n");
 
       return new Response(csv, {

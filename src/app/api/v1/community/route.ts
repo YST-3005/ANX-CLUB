@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
+import {getAdminDb} from '@/lib/firebase/admin';
 
 export async function GET() {
   try {
-    const snapshot = await adminDb.collection('communityTopics').orderBy('createdAt', 'desc').get();
-    const topics = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const snapshot = await getAdminDb().collection('communityTopics').orderBy('createdAt', 'desc').get();
+    const topics = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
     
     return NextResponse.json(topics);
   } catch (error: any) {
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       repliesCount: 0
     };
 
-    const docRef = await adminDb.collection('communityTopics').add(topicData);
+    const docRef = await getAdminDb().collection('communityTopics').add(topicData);
 
     return NextResponse.json({ id: docRef.id, ...topicData }, { status: 201 });
   } catch (error: any) {

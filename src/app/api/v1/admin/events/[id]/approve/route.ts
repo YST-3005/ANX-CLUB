@@ -1,30 +1,40 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { NextResponse, NextRequest } from 'next/server';
+import { getAdminDb } from '@/lib/firebase/admin';
+import { authenticate } from '@/lib/auth';
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const docRef = doc(db, 'events', params.id);
-    const docSnap = await getDoc(docRef);
+    const userId = await authenticate(request);
+    if (!userId) {
+      return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
+    }
 
-    if (!docSnap.exists()) {
-      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
+    const userDoc = await getAdminDb().collection("users").doc(userId).get();
+    if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
+      return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden" } }, { status: 403 });
+    }
+
+    const docRef = getAdminDb().collection('events').doc(params.id);
+    const docSnap = await docRef.get();
+
+    if (!docSnap.exists) {
+      return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: 'Event not found' } }, { status: 404 });
     }
 
     const body = await request.json();
     const { action } = body; // 'Approve' or 'Reject'
 
     if (action === 'Approve') {
-      await updateDoc(docRef, { status: 'Approved' });
+      await docRef.update({ status: 'Approved' });
     } else if (action === 'Reject') {
-      await updateDoc(docRef, { status: 'Rejected' });
+      await docRef.update({ status: 'Rejected' });
     } else {
-      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+      return NextResponse.json({ success: false, error: { code: "BAD_REQUEST", message: 'Invalid action' } }, { status: 400 });
     }
 
     return NextResponse.json({ success: true, status: action === 'Approve' ? 'Approved' : 'Rejected' });
   } catch (error: any) {
     console.error('Error updating event status:', error);
-    return NextResponse.json({ error: error.message || 'Error updating event' }, { status: 500 });
+    return NextResponse.json({ success: false, error: { code: "INTERNAL_ERROR", message: 'Error updating event' } }, { status: 500 });
   }
 }

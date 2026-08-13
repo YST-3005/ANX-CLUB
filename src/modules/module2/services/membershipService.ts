@@ -1,4 +1,5 @@
-import { adminDb as db } from '@/lib/firebase/admin';
+import {getAdminDb} from '@/lib/firebase/admin';
+const db = getAdminDb();
 import { MembershipInfo } from '@/modules/module2/types/dashboard';
 import { getMembershipByUserId } from '@/modules/module2/data';
 

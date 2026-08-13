@@ -46,7 +46,7 @@ export default function ResourcesPage() {
       </div>
 
       {/* Filters Utility card */}
-      <section className="bg-card border border-border/50 rounded-2xl p-5 shadow-sm space-y-4">
+      <section className="glass rounded-2xl p-5 shadow-xl space-y-4">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           {/* Search bar */}
           <div className="relative w-full md:max-w-md group">
@@ -56,7 +56,7 @@ export default function ResourcesPage() {
               placeholder="Search library assets..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-muted/40 border border-border/60 rounded-xl text-xs placeholder:text-muted-foreground/80 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-card transition-all"
+              className="w-full pl-10 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs placeholder:text-muted-foreground/80 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all text-white shadow-inner"
             />
           </div>
 
@@ -65,7 +65,7 @@ export default function ResourcesPage() {
             <select
               value={selectedLevel}
               onChange={e => setSelectedLevel(e.target.value)}
-              className="px-3.5 py-2.5 bg-muted/40 border border-border rounded-xl text-xs font-semibold text-foreground focus:outline-none"
+              className="px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs font-semibold text-white focus:outline-none"
             >
               <option value="all">All Difficulty Levels</option>
               {levels.slice(1).map(l => <option key={l} value={l}>{l}</option>)}
@@ -74,7 +74,7 @@ export default function ResourcesPage() {
             <select
               value={selectedCategory}
               onChange={e => setSelectedCategory(e.target.value)}
-              className="px-3.5 py-2.5 bg-muted/40 border border-border rounded-xl text-xs font-semibold text-foreground focus:outline-none"
+              className="px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs font-semibold text-white focus:outline-none"
             >
               <option value="all">All Tech Disciplines</option>
               {categories.slice(1).map(c => <option key={c} value={c}>{c}</option>)}
@@ -98,8 +98,9 @@ export default function ResourcesPage() {
               return (
                 <div
                   key={res.id}
-                  className="bg-card border border-border/50 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between hover:border-primary/20 transition-all hover:shadow-md group"
+                  className="glass border border-white/10 rounded-2xl overflow-hidden flex flex-col justify-between hover:border-primary/30 transition-all hover:shadow-[0_0_20px_rgba(217,70,239,0.15)] group relative"
                 >
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 pointer-events-none z-0" />
                   {/* Image cover overlay */}
                   <div className="relative h-44 w-full bg-muted overflow-hidden">
                     <img
@@ -136,7 +137,7 @@ export default function ResourcesPage() {
                   </div>
 
                   {/* Text details body */}
-                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4 relative z-10">
                     <div className="space-y-2">
                       <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
                         <span>{res.level}</span>
@@ -151,10 +152,10 @@ export default function ResourcesPage() {
 
                     <button
                       onClick={() => handleAccess(res.title, res.isPremium)}
-                      className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 ${
+                      className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 border-none ${
                         res.isPremium 
-                          ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-md shadow-amber-500/10'
-                          : 'bg-primary text-primary-foreground hover:bg-primary/95 shadow-md shadow-primary/10'
+                          ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.4)]'
+                          : 'bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white hover:opacity-90 shadow-[0_0_15px_rgba(217,70,239,0.4)]'
                       }`}
                     >
                       {isVideo ? (
@@ -176,7 +177,7 @@ export default function ResourcesPage() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border/50 rounded-2xl p-12 text-center shadow-sm space-y-3 max-w-sm mx-auto"
+            className="glass border border-white/10 rounded-2xl p-12 text-center shadow-xl space-y-3 max-w-sm mx-auto"
           >
             <Compass className="w-10 h-10 text-muted-foreground/80 mx-auto animate-pulse" />
             <h3 className="font-display text-sm font-bold text-foreground">No resources match filters</h3>

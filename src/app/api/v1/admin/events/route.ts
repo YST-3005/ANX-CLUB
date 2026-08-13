@@ -1,14 +1,23 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { NextResponse, NextRequest } from 'next/server';
+import { getAdminDb } from '@/lib/firebase/admin';
+import { authenticate } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
-    const eventsSnapshot = await getDocs(q);
-    const events = eventsSnapshot.docs.map(doc => ({
+    const userId = await authenticate(request);
+    if (!userId) {
+      return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
+    }
+
+    const userDoc = await getAdminDb().collection("users").doc(userId).get();
+    if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
+      return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden" } }, { status: 403 });
+    }
+
+    const eventsSnapshot = await getAdminDb().collection('events').orderBy('createdAt', 'desc').get();
+    const events = eventsSnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     }));
@@ -20,8 +29,18 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const userId = await authenticate(request);
+    if (!userId) {
+      return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
+    }
+
+    const userDoc = await getAdminDb().collection("users").doc(userId).get();
+    if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
+      return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden" } }, { status: 403 });
+    }
+
     const body = await request.json();
     const { title, description, date, type, price, premiumPrice, memberOnly, speaker, seats, imageUrl } = body;
 
@@ -45,7 +64,7 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await addDoc(collection(db, 'events'), eventData);
+    const docRef = await getAdminDb().collection('events').add(eventData);
 
     return NextResponse.json({ id: docRef.id, ...eventData }, { status: 201 });
   } catch (error: any) {
@@ -53,4 +72,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message || 'Error creating event' }, { status: 500 });
   }
 }
-

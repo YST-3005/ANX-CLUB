@@ -28,7 +28,7 @@ export default function AnnouncementsPage() {
       </div>
 
       {/* Filter Tabs */}
-      <section className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm flex items-center gap-2 overflow-x-auto no-scrollbar">
+      <section className="glass border border-white/10 rounded-2xl p-4 shadow-xl flex items-center gap-2 overflow-x-auto no-scrollbar">
         {categories.map((cat) => {
           const isSelected = filterCategory === cat
           return (
@@ -42,7 +42,7 @@ export default function AnnouncementsPage() {
               {isSelected && (
                 <motion.div
                   layoutId="annCategoryIndicator"
-                  className="absolute inset-0 bg-primary/10 border border-primary/25 rounded-xl"
+                  className="absolute inset-0 bg-primary/10 border border-primary/25 rounded-xl shadow-[0_0_15px_rgba(217,70,239,0.15)]"
                   transition={{ type: "spring", stiffness: 350, damping: 25 }}
                 />
               )}
@@ -83,7 +83,7 @@ export default function AnnouncementsPage() {
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className={`bg-card border border-border/50 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-start gap-4 transition-all hover:border-border/80 ${priorityStyles}`}
+                  className={`glass border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row items-start gap-4 transition-all hover:border-white/20 hover:shadow-[0_0_20px_rgba(0,0,0,0.3)] ${priorityStyles}`}
                 >
                   {/* Alert Icon Block */}
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${iconColors}`}>
@@ -123,7 +123,7 @@ export default function AnnouncementsPage() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border/50 rounded-2xl p-12 text-center shadow-sm space-y-3 max-w-sm mx-auto"
+            className="glass border border-white/10 rounded-2xl p-12 text-center shadow-xl space-y-3 max-w-sm mx-auto"
           >
             <Bell className="w-10 h-10 text-muted-foreground/80 mx-auto" />
             <h3 className="font-display text-sm font-bold text-foreground">No recent notices</h3>

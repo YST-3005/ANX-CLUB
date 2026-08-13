@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb as db } from '@/lib/firebase/admin';
+import {getAdminDb} from '@/lib/firebase/admin';
+const db = getAdminDb();
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +11,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .orderBy('createdAt', 'desc')
       .get();
       
-    const registrations = registrationsSnapshot.docs.map(doc => ({
+    const registrations = registrationsSnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     }));

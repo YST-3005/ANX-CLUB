@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
+import {getAdminDb} from '@/lib/firebase/admin';
 
 export async function POST(request: Request) {
   try {
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       formattedPhone = formattedPhone.substring(3);
     }
 
-    const otpDocRef = adminDb.collection('otps').doc(formattedPhone);
+    const otpDocRef = getAdminDb().collection('otps').doc(formattedPhone);
     const otpDoc = await otpDocRef.get();
 
     if (!otpDoc.exists) {

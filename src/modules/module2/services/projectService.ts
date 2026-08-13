@@ -1,4 +1,5 @@
-import { adminDb as db } from '@/lib/firebase/admin';
+import {getAdminDb} from '@/lib/firebase/admin';
+const db = getAdminDb();
 import { ProjectInfo } from '@/modules/module2/types/dashboard';
 import { getProjectsByUserId } from '@/modules/module2/data';
 import * as admin from 'firebase-admin';
