@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
 import { authenticate } from '@/lib/auth';
 import { sendEmail } from '@/lib/resend';
 import { mentorBookingRequestEmail } from '@/lib/email-templates';
@@ -35,22 +35,22 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await getAdminDb().collection('mentorRequests').add(requestData);
+    const docRef = await adminDb.collection('mentorRequests').add(requestData);
 
     // Send notification email to the member
     await sendEmail(userEmail, "Mentor Session Requested", mentorBookingRequestEmail(mentorName, date));
 
     // Create a real-time notification for the mentor if their account exists
     try {
-      const mentorDoc = await getAdminDb().collection('mentors').doc(params.id).get();
+      const mentorDoc = await adminDb.collection('mentors').doc(params.id).get();
       if (mentorDoc.exists && mentorDoc.data()!.ownerEmail) {
-        const userSnap = await getAdminDb().collection('users')
+        const userSnap = await adminDb.collection('users')
           .where('email', '==', mentorDoc.data()!.ownerEmail)
           .get();
         
         if (!userSnap.empty) {
           const mentorUserId = userSnap.docs[0].id;
-          await getAdminDb().collection('notifications').add({
+          await adminDb.collection('notifications').add({
             userId: mentorUserId,
             title: 'New Session Request',
             message: `${userName} requested a session on ${date}.`,

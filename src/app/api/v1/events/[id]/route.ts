@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/lib/firebase/admin";
+import { adminDb } from "@/lib/firebase/admin";
 import { authenticate } from "@/lib/auth";
 import * as admin from "firebase-admin";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params;
-    const doc = await getAdminDb().collection("events").doc(id).get();
+    const doc = await adminDb.collection("events").doc(id).get();
 
     if (!doc.exists) {
       return NextResponse.json({ success: false, message: "Event not found." }, { status: 404 });
@@ -35,7 +35,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    const userDoc = await getAdminDb().collection("users").doc(userId).get();
+    const userDoc = await adminDb.collection("users").doc(userId).get();
     if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
       return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
     }
@@ -45,7 +45,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const { createdAt, createdBy, seatsBooked, ...allowedUpdates } = body;
 
-    await getAdminDb().collection("events").doc(id).update({
+    await adminDb.collection("events").doc(id).update({
       ...allowedUpdates,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -64,14 +64,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    const userDoc = await getAdminDb().collection("users").doc(userId).get();
+    const userDoc = await adminDb.collection("users").doc(userId).get();
     if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
       return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
     }
 
     const { id } = params;
 
-    await getAdminDb().collection("events").doc(id).update({
+    await adminDb.collection("events").doc(id).update({
       isActive: false,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });

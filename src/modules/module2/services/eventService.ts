@@ -1,5 +1,5 @@
-import {getAdminDb} from '@/lib/firebase/admin';
-const db = getAdminDb();
+import {adminDb} from '@/lib/firebase/admin';
+const db = adminDb;
 import { PlatformEvent } from '@/modules/module2/types/dashboard';
 import { getUpcomingEventsList, getRegisteredEventsByUserId } from '@/modules/module2/data';
 import * as admin from 'firebase-admin';

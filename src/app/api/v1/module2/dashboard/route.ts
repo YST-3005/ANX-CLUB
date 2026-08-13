@@ -7,9 +7,9 @@ import { getAnnouncements } from '@/modules/module2/services/announcementService
 import { getProjects } from '@/modules/module2/services/projectService';
 import { DashboardResponse } from '@/modules/module2/types/dashboard';
 import { getRecommendationsByUserId, getUserByIdOrEmail } from '@/modules/module2/data';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
 import { authenticate } from '@/lib/auth';
-const db = getAdminDb();
+const db = adminDb;
 
 export async function GET(req: NextRequest) {
   try {

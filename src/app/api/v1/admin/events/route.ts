@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
 import { authenticate } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -11,12 +11,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
     }
 
-    const userDoc = await getAdminDb().collection("users").doc(userId).get();
+    const userDoc = await adminDb.collection("users").doc(userId).get();
     if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
       return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden" } }, { status: 403 });
     }
 
-    const eventsSnapshot = await getAdminDb().collection('events').orderBy('createdAt', 'desc').get();
+    const eventsSnapshot = await adminDb.collection('events').orderBy('createdAt', 'desc').get();
     const events = eventsSnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
     }
 
-    const userDoc = await getAdminDb().collection("users").doc(userId).get();
+    const userDoc = await adminDb.collection("users").doc(userId).get();
     if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
       return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden" } }, { status: 403 });
     }
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await getAdminDb().collection('events').add(eventData);
+    const docRef = await adminDb.collection('events').add(eventData);
 
     return NextResponse.json({ id: docRef.id, ...eventData }, { status: 201 });
   } catch (error: any) {

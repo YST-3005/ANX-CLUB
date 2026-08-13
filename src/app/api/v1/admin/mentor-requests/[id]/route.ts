@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
 import { authenticate } from '@/lib/auth';
 import { sendEmail } from '@/lib/resend';
 import { mentorBookingApprovalEmail, generateICS } from '@/lib/email-templates';
@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
     }
 
-    const userDoc = await getAdminDb().collection("users").doc(userId).get();
+    const userDoc = await adminDb.collection("users").doc(userId).get();
     if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
       return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden" } }, { status: 403 });
     }
@@ -23,7 +23,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ success: false, error: { code: "BAD_REQUEST", message: "Invalid status" } }, { status: 400 });
     }
 
-    const docRef = getAdminDb().collection('mentorRequests').doc(params.id);
+    const docRef = adminDb.collection('mentorRequests').doc(params.id);
     const docSnap = await docRef.get();
 
     if (!docSnap.exists) {
@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       }
 
       // Add in-app notification
-      await getAdminDb().collection('notifications').add({
+      await adminDb.collection('notifications').add({
         userId: requestData.memberId,
         title: `Mentor Session ${status}`,
         message: `Your mentoring session with ${requestData.mentorName} has been ${status.toLowerCase()}.`,

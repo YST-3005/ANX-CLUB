@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getAdminAuth } from "@/lib/firebase/admin";
+import { adminAuth } from "@/lib/firebase/admin";
 
 export async function authenticate(request: NextRequest | Request): Promise<string | null> {
   let token = "";
@@ -35,7 +35,7 @@ export async function authenticate(request: NextRequest | Request): Promise<stri
   }
 
   try {
-    const decoded = await getAdminAuth().verifyIdToken(token);
+    const decoded = await adminAuth.verifyIdToken(token);
     return decoded.uid;
   } catch (err) {
     console.error("Token verification failed:", err);

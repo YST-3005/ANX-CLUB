@@ -1,5 +1,5 @@
-import {getAdminDb} from '@/lib/firebase/admin';
-const db = getAdminDb();
+import {adminDb} from '@/lib/firebase/admin';
+const db = adminDb;
 import { Announcement } from '@/modules/module2/types/dashboard';
 import { getAnnouncementsByUserId } from '@/modules/module2/data';
 import * as admin from 'firebase-admin';

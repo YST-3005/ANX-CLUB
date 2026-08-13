@@ -29,16 +29,37 @@ export async function middleware(request: NextRequest) {
     if (sessionCookie) token = sessionCookie.value;
   }
 
-  // The middleware only acts as a basic routing gate now.
-  // JWT verification and authorization are securely handled by the `authenticate()` helper in individual API routes.
-  // This complies with Option A: adminAuth.verifyIdToken() in API Routes.
-  
   if (!token) {
     return NextResponse.json({ error: 'Unauthorized: Missing token' }, { status: 401 });
   }
 
-  // Allow request through. Authorization is handled downstream.
-  return NextResponse.next();
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return NextResponse.json({ error: 'Unauthorized: Malformed JWT' }, { status: 401 });
+    }
+
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const now = Math.floor(Date.now() / 1000);
+
+    if (payload.exp && payload.exp < now) {
+      return NextResponse.json({ error: 'Unauthorized: Token expired' }, { status: 401 });
+    }
+
+    const userId = payload.sub || payload.uid;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: Invalid claims' }, { status: 401 });
+    }
+
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-user-id', userId);
+
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    });
+  } catch (err) {
+    return NextResponse.json({ error: 'Unauthorized: Token validation failed' }, { status: 401 });
+  }
 }
 
 export const config = {

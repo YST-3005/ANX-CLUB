@@ -6,7 +6,8 @@ module.exports = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/modules/**/*.{js,ts,jsx,tsx,mdx}",
-    "./frontend/**/*.{js,ts,jsx,tsx,mdx}",
+    "./frontend/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./frontend/components/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {

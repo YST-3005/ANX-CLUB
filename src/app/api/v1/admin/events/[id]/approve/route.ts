@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
 import { authenticate } from '@/lib/auth';
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
@@ -9,12 +9,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
     }
 
-    const userDoc = await getAdminDb().collection("users").doc(userId).get();
+    const userDoc = await adminDb.collection("users").doc(userId).get();
     if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
       return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden" } }, { status: 403 });
     }
 
-    const docRef = getAdminDb().collection('events').doc(params.id);
+    const docRef = adminDb.collection('events').doc(params.id);
     const docSnap = await docRef.get();
 
     if (!docSnap.exists) {

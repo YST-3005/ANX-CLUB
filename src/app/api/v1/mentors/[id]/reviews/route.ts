@@ -1,10 +1,10 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
 import { authenticate } from '@/lib/auth';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const snapshot = await getAdminDb().collection('reviews').where('mentorId', '==', params.id).get();
+    const snapshot = await adminDb.collection('reviews').where('mentorId', '==', params.id).get();
     const reviews = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
     
     return NextResponse.json(reviews);
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await getAdminDb().collection('reviews').add(reviewData);
+    const docRef = await adminDb.collection('reviews').add(reviewData);
 
     return NextResponse.json({ success: true, data: { id: docRef.id, ...reviewData } }, { status: 201 });
   } catch (error: any) {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import {getAdminDb} from '@/lib/firebase/admin';
+import {adminDb} from '@/lib/firebase/admin';
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const participants = [currentEmail, targetEmail].sort();
 
     // Check if chat exists
-    const snapshot = await getAdminDb().collection('chats')
+    const snapshot = await adminDb.collection('chats')
       .where('participants', '==', participants)
       .get();
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       lastMessage: ""
     };
 
-    const docRef = await getAdminDb().collection('chats').add(chatData);
+    const docRef = await adminDb.collection('chats').add(chatData);
 
     return NextResponse.json({ chatId: docRef.id });
 

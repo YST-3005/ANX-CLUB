@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendOTP } from '@/lib/fast2sms';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
 import crypto from 'crypto';
 import { Redis } from '@upstash/redis';
 
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    await getAdminDb().collection('otps').doc(formattedPhone).set({
+    await adminDb.collection('otps').doc(formattedPhone).set({
       otpHash: hashedOtp,
       expiresAt,
       createdAt: new Date(),

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRazorpaySignature } from "@/lib/payments/razorpay";
-import { getAdminDb } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
 import { authenticate } from '@/lib/auth';
 import * as admin from "firebase-admin";
 
@@ -36,15 +36,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Execute atomic transaction for seat booking and registration creation
-    const result = await getAdminDb().runTransaction(async (transaction) => {
-      const eventRef = getAdminDb().collection("events").doc(eventId);
-      const paymentRef = getAdminDb().collection("payments").doc(razorpay_order_id);
+    const result = await adminDb.runTransaction(async (transaction) => {
+      const eventRef = adminDb.collection("events").doc(eventId);
+      const paymentRef = adminDb.collection("payments").doc(razorpay_order_id);
       
-      const orderRegQuery = getAdminDb().collection("eventRegistrations")
+      const orderRegQuery = adminDb.collection("eventRegistrations")
         .where("orderId", "==", razorpay_order_id)
         .limit(1);
         
-      const userRegQuery = getAdminDb().collection("eventRegistrations")
+      const userRegQuery = adminDb.collection("eventRegistrations")
         .where("eventId", "==", eventId)
         .where("userId", "==", userId)
         .limit(1);
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         throw new Error("EVENT_SOLD_OUT");
       }
 
-      const regRef = getAdminDb().collection("eventRegistrations").doc();
+      const regRef = adminDb.collection("eventRegistrations").doc();
       const registrationData = {
         eventId,
         eventTitle: eventData.title,

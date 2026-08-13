@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendOTP } from '@/lib/fast2sms';
-import {getAdminDb} from '@/lib/firebase/admin';
+import {adminDb} from '@/lib/firebase/admin';
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     // Store OTP in Firestore with an expiration time (e.g., 5 minutes)
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-    await getAdminDb().collection('otps').doc(formattedPhone).set({
+    await adminDb.collection('otps').doc(formattedPhone).set({
       otp,
       expiresAt,
       createdAt: new Date(),

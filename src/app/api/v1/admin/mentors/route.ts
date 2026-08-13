@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
 import { authenticate } from '@/lib/auth';
 
 
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await getAdminDb().collection('mentors').add(mentorData);
+    const docRef = await adminDb.collection('mentors').add(mentorData);
 
     return NextResponse.json({ id: docRef.id, ...mentorData }, { status: 201 });
   } catch (error: any) {

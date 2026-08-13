@@ -1,5 +1,5 @@
-import {getAdminDb} from '@/lib/firebase/admin';
-const db = getAdminDb();
+import {adminDb} from '@/lib/firebase/admin';
+const db = adminDb;
 import { MentorBooking } from '@/modules/module2/types/dashboard';
 import { getBookingsByUserId } from '@/modules/module2/data';
 

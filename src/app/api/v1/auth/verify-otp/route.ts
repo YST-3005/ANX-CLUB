@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
 import * as admin from 'firebase-admin';
 import crypto from 'crypto';
 export async function POST(request: Request) {
@@ -19,9 +19,9 @@ export async function POST(request: Request) {
       formattedPhone = formattedPhone.substring(3);
     }
 
-    const otpDocRef = getAdminDb().collection('otps').doc(formattedPhone);
+    const otpDocRef = adminDb.collection('otps').doc(formattedPhone);
 
-    const result = await getAdminDb().runTransaction(async (transaction) => {
+    const result = await adminDb.runTransaction(async (transaction) => {
       const otpDoc = await transaction.get(otpDocRef);
 
       if (!otpDoc.exists) {

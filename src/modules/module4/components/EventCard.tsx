@@ -135,6 +135,6 @@ export default React.memo(EventCard, (prevProps, nextProps) => {
   return (
     prevProps.event.id === nextProps.event.id &&
     prevProps.userRegisteredIds?.length === nextProps.userRegisteredIds?.length &&
-    prevProps.userRegisteredIds?.every(id => nextProps.userRegisteredIds?.includes(id))
+    (prevProps.userRegisteredIds?.every(id => nextProps.userRegisteredIds?.includes(id)) ?? true)
   );
 });
