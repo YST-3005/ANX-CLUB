@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { adminDb as db } from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
-    const eventsSnapshot = await getDocs(q);
+    const q = db.collection('events').orderBy('createdAt', 'desc');
+    const eventsSnapshot = await q.get();
     const events = eventsSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -45,7 +44,7 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await addDoc(collection(db, 'events'), eventData);
+    const docRef = await db.collection('events').add(eventData);
 
     return NextResponse.json({ id: docRef.id, ...eventData }, { status: 201 });
   } catch (error: any) {

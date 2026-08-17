@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import * as jose from 'jose';
 
 export async function middleware(request: NextRequest) {
   const url = new URL(request.url);
@@ -34,17 +35,14 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return NextResponse.json({ error: 'Unauthorized: Malformed JWT' }, { status: 401 });
-    }
+    const JWKS = jose.createRemoteJWKSet(
+      new URL('https://www.googleapis.com/robot/v1/metadata/jwk/securetoken@system.gserviceaccount.com')
+    );
 
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    const now = Math.floor(Date.now() / 1000);
-
-    if (payload.exp && payload.exp < now) {
-      return NextResponse.json({ error: 'Unauthorized: Token expired' }, { status: 401 });
-    }
+    const { payload } = await jose.jwtVerify(token, JWKS, {
+      issuer: `https://securetoken.google.com/${process.env.FIREBASE_PROJECT_ID}`,
+      audience: process.env.FIREBASE_PROJECT_ID,
+    });
 
     const userId = payload.sub || payload.uid;
     if (!userId) {
@@ -52,12 +50,13 @@ export async function middleware(request: NextRequest) {
     }
 
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-id', userId);
+    requestHeaders.set('x-user-id', String(userId));
 
     return NextResponse.next({
       request: { headers: requestHeaders },
     });
   } catch (err) {
+    console.error("Middleware Auth Error:", err);
     return NextResponse.json({ error: 'Unauthorized: Token validation failed' }, { status: 401 });
   }
 }

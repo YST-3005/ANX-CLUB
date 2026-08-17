@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { adminDb as db } from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const q = query(collection(db, 'mentors'), orderBy('createdAt', 'desc'));
-    const mentorsSnapshot = await getDocs(q);
+    const q = db.collection('mentors').orderBy('createdAt', 'desc');
+    const mentorsSnapshot = await q.get();
     const mentors = mentorsSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()

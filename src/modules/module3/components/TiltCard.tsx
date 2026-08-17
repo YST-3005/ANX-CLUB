@@ -18,14 +18,17 @@ export function TiltCard({ children }: { children: ReactNode }) {
   const glareOpacity = useTransform(x, [-0.5, 0, 0.5], [0.2, 0, 0.2]);
 
   const handleMouseEnter = useCallback((e: MouseEvent<HTMLDivElement>) => {
-    rectRef.current = e.currentTarget.getBoundingClientRect();
+    rectRef.current = {
+      width: e.currentTarget.offsetWidth,
+      height: e.currentTarget.offsetHeight,
+    } as DOMRect;
   }, []);
 
   const handleMouseMove = useCallback((e: MouseEvent<HTMLDivElement>) => {
     if (!rectRef.current) return;
     const rect = rectRef.current;
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const mouseX = e.nativeEvent.offsetX;
+    const mouseY = e.nativeEvent.offsetY;
     x.set(mouseX / rect.width - 0.5);
     y.set(mouseY / rect.height - 0.5);
   }, [x, y]);

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { adminDb as db } from '@/lib/firebase/admin';
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {

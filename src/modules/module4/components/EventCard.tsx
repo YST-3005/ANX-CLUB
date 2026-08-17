@@ -42,7 +42,10 @@ function EventCard({ event, userRegisteredIds = [], onRegistered }: EventCardPro
 
   return (
     <>
-      <Card className="flex flex-col h-full group p-0 overflow-hidden">
+      <Card 
+        className="flex flex-col h-full group p-0 overflow-hidden"
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '0 500px' }}
+      >
         {/* Poster */}
         <Link href={`/events/${event.id}`} className="block relative w-full h-48 bg-gradient-to-br from-indigo-900 to-slate-900 overflow-hidden">
           {event.posterUrl ? (

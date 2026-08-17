@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { doc, getDoc, runTransaction, collection, addDoc } from 'firebase/firestore';
+import { adminDb as db } from '@/lib/firebase/admin';
 import { sendEmail } from '@/lib/resend';
 import { eventRegistrationEmail } from '@/lib/email-templates';
 
@@ -76,7 +75,7 @@ export async function POST(request: Request) {
 
     // Create a real-time notification for the user
     try {
-      await addDoc(collection(db, 'notifications'), {
+      await db.collection('notifications').add({
         userId,
         title: 'Event Registration Successful',
         message: `You are confirmed for ${eventTitle}.`,

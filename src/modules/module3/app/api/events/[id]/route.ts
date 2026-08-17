@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { doc, getDoc } from 'firebase/firestore';
+import { adminDb as db } from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const docRef = await getDoc(doc(db, 'events', params.id));
+    const docRef = await db.collection('events').doc(params.id).get();
     
     if (!docRef.exists()) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });

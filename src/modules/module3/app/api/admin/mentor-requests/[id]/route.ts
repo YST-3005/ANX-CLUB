@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { doc, getDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { adminDb as db } from '@/lib/firebase/admin';
 import { sendEmail } from '@/lib/resend';
 import { mentorBookingApprovalEmail, generateICS } from '@/lib/email-templates';
 
@@ -46,7 +45,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       }
 
       // Add in-app notification
-      await addDoc(collection(db, 'notifications'), {
+      await db.collection('notifications').add({
         userId: requestData.memberId,
         title: `Mentor Session ${status}`,
         message: `Your mentoring session with ${requestData.mentorName} has been ${status.toLowerCase()}.`,

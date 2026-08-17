@@ -4,61 +4,78 @@ const projectId = process.env.FIREBASE_PROJECT_ID;
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-function initAdmin(): admin.app.App | null {
-  if (admin.apps.length > 0) return admin.apps[0]!;
-  if (!projectId || !clientEmail || !privateKey) return null;
+class FirebaseAdminSingleton {
+  private static instance: admin.app.App | null = null;
+  private static dbInstance: admin.firestore.Firestore | null = null;
+  private static authInstance: admin.auth.Auth | null = null;
+  private static storageInstance: admin.storage.Storage | null = null;
 
-  try {
-    return admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId,
-        clientEmail,
-        privateKey: privateKey.replace(/\\n/g, '\n'),
-      }),
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    });
-  } catch (error) {
-    console.error('Failed to initialize Firebase Admin SDK:', error);
-    return null;
+  private constructor() {}
+
+  public static getApp(): admin.app.App {
+    if (this.instance) return this.instance;
+
+    if (admin.apps.length > 0) {
+      this.instance = admin.apps[0]!;
+      return this.instance;
+    }
+
+    if (!projectId || !clientEmail || !privateKey) {
+      throw new Error("Firebase Admin SDK missing required credentials.");
+    }
+
+    try {
+      this.instance = admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId,
+          clientEmail,
+          privateKey: privateKey.replace(/\\n/g, '\n'),
+        }),
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      });
+      return this.instance;
+    } catch (error) {
+      console.error('Failed to initialize Firebase Admin SDK:', error);
+      throw error;
+    }
+  }
+
+  public static get db(): admin.firestore.Firestore {
+    if (!this.dbInstance) this.dbInstance = this.getApp().firestore();
+    return this.dbInstance;
+  }
+
+  public static get auth(): admin.auth.Auth {
+    if (!this.authInstance) this.authInstance = this.getApp().auth();
+    return this.authInstance;
+  }
+
+  public static get storage(): admin.storage.Storage {
+    if (!this.storageInstance) this.storageInstance = this.getApp().storage();
+    return this.storageInstance;
   }
 }
 
-let cachedDb: admin.firestore.Firestore | null = null;
-let cachedAuth: admin.auth.Auth | null = null;
-let cachedStorage: admin.storage.Storage | null = null;
-
 export const adminDb = new Proxy({} as admin.firestore.Firestore, {
   get(_, prop) {
-    if (!cachedDb) {
-      const app = initAdmin();
-      if (!app) throw new Error("Firebase Admin SDK missing required credentials.");
-      cachedDb = admin.firestore();
-    }
-    const value = (cachedDb as any)[prop];
-    return typeof value === 'function' ? value.bind(cachedDb) : value;
+    const db = FirebaseAdminSingleton.db;
+    const value = (db as any)[prop];
+    return typeof value === 'function' ? value.bind(db) : value;
   }
 });
 
 export const adminAuth = new Proxy({} as admin.auth.Auth, {
   get(_, prop) {
-    if (!cachedAuth) {
-      const app = initAdmin();
-      if (!app) throw new Error("Firebase Admin SDK missing required credentials.");
-      cachedAuth = admin.auth();
-    }
-    const value = (cachedAuth as any)[prop];
-    return typeof value === 'function' ? value.bind(cachedAuth) : value;
+    const auth = FirebaseAdminSingleton.auth;
+    const value = (auth as any)[prop];
+    return typeof value === 'function' ? value.bind(auth) : value;
   }
 });
 
 export const adminStorage = new Proxy({} as admin.storage.Storage, {
   get(_, prop) {
-    if (!cachedStorage) {
-      const app = initAdmin();
-      if (!app) throw new Error("Firebase Admin SDK missing required credentials.");
-      cachedStorage = admin.storage();
-    }
-    const value = (cachedStorage as any)[prop];
-    return typeof value === 'function' ? value.bind(cachedStorage) : value;
+    const storage = FirebaseAdminSingleton.storage;
+    const value = (storage as any)[prop];
+    return typeof value === 'function' ? value.bind(storage) : value;
   }
 });

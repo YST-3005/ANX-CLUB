@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { collection, addDoc } from 'firebase/firestore';
+import { adminDb as db } from '@/lib/firebase/admin';
 
 export async function POST(request: Request) {
   try {
@@ -23,7 +22,7 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await addDoc(collection(db, 'mentors'), mentorData);
+    const docRef = await db.collection('mentors').add(mentorData);
 
     return NextResponse.json({ id: docRef.id, ...mentorData }, { status: 201 });
   } catch (error: any) {

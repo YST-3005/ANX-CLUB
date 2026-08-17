@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useDeferredValue } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageSquare, Heart, Share2, Plus, Sparkles, Send } from 'lucide-react'
 import { communityApi } from '@/lib/api'
@@ -12,6 +12,7 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [newPost, setNewPost] = useState('')
+  const deferredNewPost = useDeferredValue(newPost)
 
   useEffect(() => {
     const fetchPosts = async () => {

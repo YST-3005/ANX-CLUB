@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { doc, getDoc } from 'firebase/firestore';
+import { adminDb as db } from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const docRef = await getDoc(doc(db, 'mentors', params.id));
+    const docRef = await db.collection('mentors').doc(params.id).get();
     
     if (!docRef.exists()) {
       return NextResponse.json({ error: 'Mentor not found' }, { status: 404 });

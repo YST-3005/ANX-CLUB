@@ -16,13 +16,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden" } }, { status: 403 });
     }
 
-    const eventsSnapshot = await adminDb.collection('events').orderBy('createdAt', 'desc').get();
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
+    const lastId = searchParams.get("lastId");
+    const sortBy = searchParams.get("sortBy") || "createdAt";
+    const sortOrder = (searchParams.get("sortOrder") || "desc") as "asc" | "desc";
+
+    let queryRef: any = adminDb.collection('events').orderBy(sortBy, sortOrder).limit(limit);
+
+    if (lastId) {
+      const lastDoc = await adminDb.collection("events").doc(lastId).get();
+      if (lastDoc.exists) {
+        queryRef = queryRef.startAfter(lastDoc);
+      }
+    }
+
+    const eventsSnapshot = await queryRef.get();
     const events = eventsSnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     }));
 
-    return NextResponse.json(events);
+    const response = NextResponse.json(events);
+    
+    // Admin routes generally shouldn't be heavily cached, but a small cache avoids spam
+    response.headers.set("Cache-Control", "private, max-age=10");
+
+    return response;
   } catch (error: any) {
     console.error('Error fetching admin events:', error);
     return NextResponse.json({ error: error.message || 'Error fetching events' }, { status: 500 });

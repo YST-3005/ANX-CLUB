@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     const onlyUpcoming = searchParams.get("upcoming") === "true";
     const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
     const lastId = searchParams.get("lastId");
+    const sortBy = searchParams.get("sortBy") || "date";
+    const sortOrder = (searchParams.get("sortOrder") || "desc") as "asc" | "desc";
 
     let queryRef: admin.firestore.Query = adminDb.collection("events")
       .where("isActive", "==", true);
@@ -25,7 +27,14 @@ export async function GET(request: NextRequest) {
       queryRef = queryRef.where("date", ">=", nowStr);
     }
 
-    queryRef = queryRef.orderBy("date", "desc").limit(limit);
+    // Adding sort order based on params
+    if (sortBy) {
+      queryRef = queryRef.orderBy(sortBy, sortOrder);
+    } else {
+      queryRef = queryRef.orderBy("date", "desc");
+    }
+    
+    queryRef = queryRef.limit(limit);
 
     if (lastId) {
       const lastDoc = await adminDb.collection("events").doc(lastId).get();
@@ -54,10 +63,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Cache static/semi-static events payload on CDN edge for 60 seconds
+    // Cache static/semi-static events payload on CDN edge for 5 minutes
     response.headers.set(
       "Cache-Control",
-      "public, s-maxage=60, stale-while-revalidate=300"
+      "public, s-maxage=300, stale-while-revalidate=600"
     );
 
     return response;

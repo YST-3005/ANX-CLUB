@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { adminDb as db } from '@/lib/firebase/admin';
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const q = query(collection(db, 'reviews'), where('mentorId', '==', params.id));
-    const snapshot = await getDocs(q);
+    const q = db.collection('reviews').where('mentorId', '==', params.id);
+    const snapshot = await q.get();
     const reviews = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
     return NextResponse.json(reviews);
@@ -33,7 +32,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await addDoc(collection(db, 'reviews'), reviewData);
+    const docRef = await db.collection('reviews').add(reviewData);
 
     return NextResponse.json({ id: docRef.id, ...reviewData }, { status: 201 });
   } catch (error: any) {

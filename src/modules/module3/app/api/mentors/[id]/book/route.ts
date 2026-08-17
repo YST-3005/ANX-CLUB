@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/client';
-import { collection, addDoc, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { adminDb as db } from '@/lib/firebase/admin';
 import { sendEmail } from '@/lib/resend';
 import { mentorBookingRequestEmail } from '@/lib/email-templates';
 
@@ -27,21 +26,21 @@ export async function POST(request: Request, { params }: { params: { id: string 
       createdAt: new Date().toISOString()
     };
 
-    const docRef = await addDoc(collection(db, 'mentorRequests'), requestData);
+    const docRef = await db.collection('mentorRequests').add(requestData);
 
     // Send notification email to the member
     await sendEmail(userEmail, "Mentor Session Requested", mentorBookingRequestEmail(mentorName, date));
 
     // Create a real-time notification for the mentor if their account exists
     try {
-      const mentorDoc = await getDoc(doc(db, 'mentors', params.id));
+      const mentorDoc = await db.collection('mentors').doc(params.id).get();
       if (mentorDoc.exists() && mentorDoc.data().ownerEmail) {
         const userQ = query(collection(db, 'users'), where('email', '==', mentorDoc.data().ownerEmail));
-        const userSnap = await getDocs(userQ);
+        const userSnap = await userQ.get();
         
         if (!userSnap.empty) {
           const mentorUserId = userSnap.docs[0].id;
-          await addDoc(collection(db, 'notifications'), {
+          await db.collection('notifications').add({
             userId: mentorUserId,
             title: 'New Session Request',
             message: `${userName} requested a session on ${date}.`,

@@ -2,8 +2,41 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import * as admin from 'firebase-admin';
 import crypto from 'crypto';
+import { Redis } from '@upstash/redis';
+
+let redis: Redis | null = null;
+if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+  redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  });
+}
+
+const devRateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+async function checkRateLimit(key: string, limit = 5, windowSecs = 300): Promise<boolean> {
+  if (redis) {
+    const current = await redis.incr(key);
+    if (current === 1) {
+      await redis.expire(key, windowSecs);
+    }
+    return current <= limit;
+  } else {
+    const now = Date.now();
+    const record = devRateLimitStore.get(key);
+    if (!record || now > record.resetTime) {
+      devRateLimitStore.set(key, { count: 1, resetTime: now + windowSecs * 1000 });
+      return true;
+    }
+    if (record.count >= limit) return false;
+    record.count += 1;
+    return true;
+  }
+}
+
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get("x-forwarded-for") || "anonymous";
     const { phoneNumber, otp } = await request.json();
 
     if (!phoneNumber || !otp) {
@@ -17,6 +50,16 @@ export async function POST(request: Request) {
     let formattedPhone = phoneNumber;
     if (formattedPhone.startsWith('+91')) {
       formattedPhone = formattedPhone.substring(3);
+    }
+
+    // Rate limit verification attempts (5 attempts per 5 minutes per IP+Phone)
+    const rateLimitKey = `rate-limit:verify-otp:${ip}:${formattedPhone}`;
+    const isAllowed = await checkRateLimit(rateLimitKey);
+    if (!isAllowed) {
+      return NextResponse.json(
+        { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Too many verification attempts. Please try again later." } },
+        { status: 429 }
+      );
     }
 
     const otpDocRef = adminDb.collection('otps').doc(formattedPhone);
