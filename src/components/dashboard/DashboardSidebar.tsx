@@ -117,7 +117,7 @@ export function DashboardSidebar({ onClose }: SidebarProps) {
 
         <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#0b0c1b]/80 border border-white/5 backdrop-blur-md">
           <img
-            src={user?.photoURL || MOCK_USER.avatar}
+            src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.fullName || user?.displayName || 'User')}&background=8b5cf6&color=fff`}
             alt={profile?.fullName || user?.displayName || 'Avatar'}
             className="w-10 h-10 rounded-full object-cover ring-2 ring-purple-500/30"
           />

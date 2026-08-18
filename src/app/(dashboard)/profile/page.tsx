@@ -150,8 +150,8 @@ export default function ProfilePage() {
         {/* Avatar */}
         <div className="relative shrink-0">
           <img
-            src={user?.photoURL || MOCK_USER.avatar}
-            alt={profile.fullName}
+            src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.fullName || user?.displayName || 'User')}&background=8b5cf6&color=fff&size=128`}
+            alt={profile?.fullName || user?.displayName || 'Avatar'}
             className="w-28 h-28 md:w-32 md:h-32 rounded-3xl object-cover ring-4 ring-muted"
           />
           <span className="absolute -bottom-2 -right-2 bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white p-1.5 rounded-xl shadow-[0_0_15px_rgba(217,70,239,0.6)] border border-white/20">

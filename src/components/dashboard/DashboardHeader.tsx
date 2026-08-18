@@ -125,7 +125,7 @@ export function DashboardHeader({ onMenuClick }: HeaderProps) {
               <span className="text-[10px] text-purple-400 font-medium truncate">{profile?.role || 'Premium Member'}</span>
             </div>
             <img
-              src={user?.photoURL || MOCK_USER.avatar}
+              src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.fullName || user?.displayName || 'User')}&background=8b5cf6&color=fff`}
               alt={profile?.fullName || user?.displayName || 'Avatar'}
               className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)]"
             />

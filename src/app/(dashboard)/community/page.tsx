@@ -80,8 +80,8 @@ export default function CommunityPage() {
       const postObj = {
         id: Date.now(),
         authorName: profile?.fullName || 'Anonymous User',
-        authorRole: profile?.role || 'Student Member',
-        avatar: user.photoURL || MOCK_USER.avatar,
+        author: profile?.fullName || user?.displayName || 'A.N.X Member',
+        avatar: user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.fullName || user?.displayName || 'User')}&background=8b5cf6&color=fff`,
         content: newPost,
         likes: 0,
         comments: 0,
@@ -116,8 +116,8 @@ export default function CommunityPage() {
       <section className="glass rounded-3xl p-5 shadow-xl flex gap-4 items-start relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-fuchsia-500/10 blur-2xl rounded-full pointer-events-none" />
         <img
-          src={user?.photoURL || MOCK_USER.avatar}
-          alt="Profile"
+          src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.fullName || user?.displayName || 'User')}&background=8b5cf6&color=fff`}
+          alt={profile?.fullName || user?.displayName || 'Avatar'}
           className="w-10 h-10 rounded-full object-cover ring-2 ring-white/10 shrink-0 relative z-10"
         />
         <div className="flex-1 space-y-3 relative z-10">

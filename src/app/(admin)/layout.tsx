@@ -77,12 +77,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="p-4 border-t border-zinc-900 bg-zinc-900/30">
         <div className="flex items-center gap-3 p-2 rounded-xl">
           <img
-            src={MOCK_USER.avatar}
-            alt={MOCK_USER.fullName}
+            src={`https://ui-avatars.com/api/?name=System+Admin&background=f59e0b&color=fff`}
+            alt="System Admin"
             className="w-10 h-10 rounded-xl object-cover ring-2 ring-zinc-800"
           />
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-semibold text-white truncate">{MOCK_USER.fullName}</h4>
+            <h4 className="text-sm font-semibold text-white truncate">System Admin</h4>
             <p className="text-xs text-zinc-500 truncate">System Operator</p>
           </div>
         </div>
@@ -152,11 +152,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <ThemeToggle />
             <div className="flex items-center gap-2.5 p-1.5 pr-3 bg-muted/40 border border-border/40 rounded-xl">
               <img
-                src={MOCK_USER.avatar}
-                alt={MOCK_USER.fullName}
+                src={`https://ui-avatars.com/api/?name=System+Admin&background=f59e0b&color=fff`}
+                alt="System Admin"
                 className="w-7 h-7 rounded-lg object-cover"
               />
-              <span className="text-xs font-bold text-foreground hidden sm:inline">{MOCK_USER.fullName}</span>
+              <span className="text-xs font-bold text-foreground hidden sm:inline">System Admin</span>
             </div>
           </div>
         </header>
