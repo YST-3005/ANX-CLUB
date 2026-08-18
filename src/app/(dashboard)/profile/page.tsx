@@ -42,8 +42,8 @@ export default function ProfilePage() {
         linkedinUrl: dbProfile.linkedinUrl || '',
         githubUrl: dbProfile.githubUrl || '',
         portfolioUrl: dbProfile.portfolioUrl || '',
-        skills: dbProfile.skills ? dbProfile.skills.split(', ') : [],
-        interests: dbProfile.interests ? dbProfile.interests.split(', ') : [],
+        skills: Array.isArray(dbProfile.skills) ? dbProfile.skills : (typeof dbProfile.skills === 'string' && dbProfile.skills ? dbProfile.skills.split(', ') : []),
+        interests: Array.isArray(dbProfile.interests) ? dbProfile.interests : (typeof dbProfile.interests === 'string' && dbProfile.interests ? dbProfile.interests.split(', ') : []),
       })
     }
   }, [dbProfile])
@@ -74,8 +74,8 @@ export default function ProfilePage() {
         linkedinUrl: tempProfile.linkedinUrl,
         githubUrl: tempProfile.githubUrl,
         portfolioUrl: tempProfile.portfolioUrl,
-        skills: tempProfile.skills.join(', '),
-        interests: tempProfile.interests.join(', '),
+        skills: Array.isArray(tempProfile.skills) ? tempProfile.skills.join(', ') : '',
+        interests: Array.isArray(tempProfile.interests) ? tempProfile.interests.join(', ') : '',
       }, { merge: true })
 
       setProfile({ ...tempProfile })
@@ -302,12 +302,12 @@ export default function ProfilePage() {
           <div className="glass border border-white/10 rounded-2xl p-6 shadow-xl space-y-4 hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="font-display text-base font-bold text-white">Skills Inventory</h3>
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{isEditing ? tempProfile.skills.length : profile.skills.length} skills listed</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{isEditing ? (tempProfile.skills?.length || 0) : (profile.skills?.length || 0)} skills listed</span>
             </div>
 
             {/* Skills chip container */}
             <div className="flex flex-wrap gap-2">
-              {(isEditing ? tempProfile.skills : profile.skills).map((skill: string) => (
+              {(isEditing ? tempProfile.skills : profile.skills)?.map((skill: string) => (
                 <span
                   key={skill}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-black/40 border border-white/10 text-white text-xs font-semibold rounded-xl"
