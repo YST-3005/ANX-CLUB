@@ -121,12 +121,12 @@ export function DashboardHeader({ onMenuClick }: HeaderProps) {
             className="flex items-center gap-3 text-left group"
           >
             <div className="hidden sm:flex flex-col items-end">
-              <p className="text-sm font-semibold text-white leading-tight group-hover:text-purple-400 transition-colors">{profile?.fullName || MOCK_USER.fullName}</p>
+              <p className="text-sm font-semibold text-white leading-tight group-hover:text-purple-400 transition-colors">{profile?.fullName || user?.displayName || 'A.N.X Member'}</p>
               <span className="text-[10px] text-purple-400 font-medium truncate">{profile?.role || 'Premium Member'}</span>
             </div>
             <img
               src={user?.photoURL || MOCK_USER.avatar}
-              alt={profile?.fullName || MOCK_USER.fullName}
+              alt={profile?.fullName || user?.displayName || 'Avatar'}
               className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)]"
             />
           </button>
@@ -144,7 +144,7 @@ export function DashboardHeader({ onMenuClick }: HeaderProps) {
                 >
                   <div className="px-3 py-2 border-b border-white/10 mb-1">
                     <p className="text-xs text-muted-foreground font-medium">Signed in as</p>
-                    <p className="text-sm font-semibold text-white truncate mt-0.5">{profile?.fullName || MOCK_USER.fullName}</p>
+                    <p className="text-sm font-semibold text-white truncate mt-0.5">{profile?.fullName || user?.displayName || 'A.N.X Member'}</p>
                     {(profile?.role === 'Premium Member' || (profile as any)?.membershipTier === 'premium' || MOCK_USER.membershipTier === 'premium') && (
                       <span className="inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-amber-500 to-orange-500 text-white px-2 py-0.5 rounded-md font-semibold tracking-wider uppercase mt-1.5 shadow-[0_0_10px_rgba(245,158,11,0.3)]">
                         <Award className="w-2.5 h-2.5" /> Premium Member

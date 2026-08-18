@@ -120,7 +120,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
-                Welcome back, {profile?.fullName ? profile.fullName.split(' ')[0] : 'Rohit'}! <span className="text-2xl">👋</span>
+                Welcome back, {profile?.fullName ? profile.fullName.split(' ')[0] : (user?.displayName ? user.displayName.split(' ')[0] : 'Member')}! <span className="text-2xl">👋</span>
               </h1>
               <p className="text-lg text-gray-300 mt-2 max-w-lg">
                 Continue your journey of learning, building and growing with A.N.X
@@ -144,7 +144,7 @@ export default function DashboardPage() {
                 <Badge variant="primary" className="bg-fuchsia-500 text-white border-none text-[10px] px-2 py-0">BETA</Badge>
               </div>
               <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-                Hello {profile?.fullName ? profile.fullName.split(' ')[0] : 'Rohit'}! I can help you find events, mentors, roadmaps and more.
+                Hello {profile?.fullName ? profile.fullName.split(' ')[0] : (user?.displayName ? user.displayName.split(' ')[0] : 'Member')}! I can help you find events, mentors, roadmaps and more.
               </p>
               <Button onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))} className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white border-none shadow-[0_0_15px_rgba(217,70,239,0.4)]">
                 Ask Anything <Zap className="h-3 w-3 ml-2" />
