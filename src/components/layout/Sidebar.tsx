@@ -21,21 +21,22 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
 import { Avatar } from '../ui/Avatar';
+import toast from 'react-hot-toast';
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
   { icon: Calendar, label: 'Events', href: '/events' },
   { icon: Users2, label: 'Mentors', href: '/mentors' },
   { icon: MessageSquare, label: 'Community', href: '/community' },
-  { icon: FolderGit2, label: 'Projects', href: '/projects' },
-  { icon: Map, label: 'Roadmaps', href: '/roadmaps' },
+  { icon: FolderGit2, label: 'Projects', href: '#' },
+  { icon: Map, label: 'Roadmaps', href: '#' },
   { icon: CreditCard, label: 'Membership', href: '/membership' },
-  { icon: MessageSquare, label: 'Messages', href: '/messages' },
+  { icon: MessageSquare, label: 'Messages', href: '#' },
 ];
 
 const BOTTOM_ITEMS = [
   { icon: UserCircle, label: 'Profile', href: '/profile' },
-  { icon: Settings, label: 'Settings', href: '/settings' },
+  { icon: Settings, label: 'Settings', href: '#' },
 ];
 
 export function Sidebar() {
@@ -90,11 +91,17 @@ export function Sidebar() {
       {/* Nav Items */}
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+          const isActive = pathname === item.href || (item.href !== '/' && item.href !== '#' && pathname.startsWith(item.href));
           return (
             <Link
-              key={item.href}
+              key={item.label}
               href={item.href}
+              onClick={(e) => {
+                if (item.href === '#') {
+                  e.preventDefault();
+                  toast.success(`${item.label} coming soon!`);
+                }
+              }}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200',
                 'group relative',
@@ -165,8 +172,14 @@ export function Sidebar() {
           const isActive = pathname === item.href;
           return (
             <Link
-              key={item.href}
+              key={item.label}
               href={item.href}
+              onClick={(e) => {
+                if (item.href === '#') {
+                  e.preventDefault();
+                  toast.success(`${item.label} coming soon!`);
+                }
+              }}
               className={cn(
                 'flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all duration-150',
                 isActive

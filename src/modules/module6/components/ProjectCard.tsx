@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Card } from '@/components/ui/Card';
 import { ArrowRight, Code } from "lucide-react";
+import toast from 'react-hot-toast';
 
 interface ProjectCardProps {
   project: {
@@ -61,7 +62,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         </div>
       </div>
       
-      <Link href={`/projects/${project.id}`} className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 group-hover:bg-emerald-500 group-hover:text-white group-hover:border-emerald-400">
+      <Link href="#" onClick={(e) => { e.preventDefault(); toast.success('Project details coming soon!'); }} className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 group-hover:bg-emerald-500 group-hover:text-white group-hover:border-emerald-400">
         View Details <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
       </Link>
     </Card>

@@ -146,7 +146,7 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-400 mb-4 leading-relaxed">
                 Hello {profile?.fullName ? profile.fullName.split(' ')[0] : 'Rohit'}! I can help you find events, mentors, roadmaps and more.
               </p>
-              <Button className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white border-none shadow-[0_0_15px_rgba(217,70,239,0.4)]">
+              <Button onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))} className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white border-none shadow-[0_0_15px_rgba(217,70,239,0.4)]">
                 Ask Anything <Zap className="h-3 w-3 ml-2" />
               </Button>
             </div>
@@ -250,7 +250,7 @@ export default function DashboardPage() {
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Zap className="h-4 w-4 text-cyan-400" /> Your Learning Progress
               </h2>
-              <Link href="#" className="text-xs font-medium text-cyan-400 hover:text-cyan-300">View Roadmap →</Link>
+              <button onClick={() => toast.success('Roadmaps coming soon!')} className="text-xs font-medium text-cyan-400 hover:text-cyan-300">View Roadmap →</button>
             </div>
             <div className="p-6">
               <div className="flex items-center gap-6">
@@ -282,8 +282,10 @@ export default function DashboardPage() {
               <div className="mt-8">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xs font-bold text-white">Weekly Activity</h3>
-                  <select className="bg-black/50 border border-white/10 text-xs text-gray-300 rounded px-2 py-1 outline-none">
-                    <option>This Week</option>
+                  <select onChange={(e) => toast.success(`Changed period to ${e.target.value}`)} className="bg-black/50 border border-white/10 text-xs text-gray-300 rounded px-2 py-1 outline-none">
+                    <option value="This Week">This Week</option>
+                    <option value="This Month">This Month</option>
+                    <option value="All Time">All Time</option>
                   </select>
                 </div>
                 <div className="h-[120px] w-full mt-2 relative">
@@ -313,7 +315,7 @@ export default function DashboardPage() {
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Zap className="h-4 w-4 text-fuchsia-500" /> Recent Activity
               </h2>
-              <Link href="#" className="text-xs font-medium text-fuchsia-400 hover:text-fuchsia-300">View All →</Link>
+              <button onClick={() => toast.success('Activity history coming soon!')} className="text-xs font-medium text-fuchsia-400 hover:text-fuchsia-300">View All →</button>
             </div>
             <div className="p-5 space-y-6">
               {[
@@ -352,7 +354,7 @@ export default function DashboardPage() {
                 <div className="py-8 text-center text-gray-500 text-xs">No upcoming sessions</div>
               ) : (
                 mentorBookings.slice(0, 3).map((booking: any) => (
-                  <div key={booking.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all cursor-pointer">
+                  <div onClick={() => toast.success(`Viewing session with ${booking.mentorName || booking.name}`)} key={booking.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all cursor-pointer">
                     <Avatar name={booking.mentorName || booking.name} size="md" className="ring-2 ring-white/10" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-white">{booking.mentorName || booking.name}</p>
@@ -382,7 +384,7 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-400 mt-2 max-w-[70%] leading-relaxed">
                 Based on your skills and interests, our AI recommends this path for your growth.
               </p>
-              <Button className="mt-4 bg-gradient-to-r from-fuchsia-600 to-purple-600 border-none text-xs h-8">
+              <Button onClick={() => toast.success('Roadmaps coming soon!')} className="mt-4 bg-gradient-to-r from-fuchsia-600 to-purple-600 border-none text-xs h-8">
                 View Roadmap →
               </Button>
             </div>
@@ -397,18 +399,18 @@ export default function DashboardPage() {
             </div>
             <div className="p-5 flex justify-between gap-2">
               {[
-                { icon: Calendar, label: 'Browse Events', bg: 'bg-purple-500/20', color: 'text-purple-400' },
-                { icon: Users2, label: 'Book Mentor', bg: 'bg-blue-500/20', color: 'text-blue-400' },
-                { icon: FolderGit2, label: 'Explore Projects', bg: 'bg-orange-500/20', color: 'text-orange-400' },
-                { icon: Users2, label: 'Join Community', bg: 'bg-emerald-500/20', color: 'text-emerald-400' },
-                { icon: MessageSquare, label: 'Start Chat', bg: 'bg-pink-500/20', color: 'text-pink-400' },
+                { icon: Calendar, label: 'Browse Events', bg: 'bg-purple-500/20', color: 'text-purple-400', link: '/events' },
+                { icon: Users2, label: 'Book Mentor', bg: 'bg-blue-500/20', color: 'text-blue-400', link: '/mentors' },
+                { icon: FolderGit2, label: 'Explore Projects', bg: 'bg-orange-500/20', color: 'text-orange-400', link: '#' },
+                { icon: Users2, label: 'Join Community', bg: 'bg-emerald-500/20', color: 'text-emerald-400', link: '/community' },
+                { icon: MessageSquare, label: 'Start Chat', bg: 'bg-pink-500/20', color: 'text-pink-400', link: '#' },
               ].map((act, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 cursor-pointer group">
+                <Link href={act.link} onClick={(e) => { if (act.link === '#') { e.preventDefault(); toast.success('Coming soon!'); } }} key={i} className="flex flex-col items-center gap-2 cursor-pointer group">
                   <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:-translate-y-1 shadow-lg", act.bg)}>
                     <act.icon className={cn("h-5 w-5", act.color)} />
                   </div>
                   <span className="text-[9px] font-medium text-gray-400 text-center leading-tight w-14 group-hover:text-white transition-colors">{act.label}</span>
-                </div>
+                </Link>
               ))}
             </div>
           </Card>
@@ -422,7 +424,7 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-400 mt-2 leading-relaxed">
                 Invite your friends and earn exclusive rewards and premium benefits.
               </p>
-              <Button className="mt-4 bg-primary text-white border-none text-xs h-8">
+              <Button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/signup?ref=${user?.uid}`); toast.success('Referral link copied!') }} className="mt-4 bg-primary text-white border-none text-xs h-8">
                 Invite Now
               </Button>
             </div>

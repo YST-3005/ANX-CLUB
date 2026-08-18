@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { MOCK_USER } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/modules/module3/components/AuthContext'
 
 interface SidebarProps {
   onClose?: () => void
@@ -28,6 +29,7 @@ const navItems = [
 
 export function DashboardSidebar({ onClose }: SidebarProps) {
   const pathname = usePathname()
+  const { user, profile, logout } = useAuth()
 
   return (
     <div className="h-full flex flex-col justify-between bg-background text-foreground border-r border-border/10 select-none z-10 relative">
@@ -108,22 +110,22 @@ export function DashboardSidebar({ onClose }: SidebarProps) {
               <div className="text-xs text-muted-foreground">Valid till 15 Aug 2025</div>
             </div>
           </div>
-          <button className="w-full mt-4 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all">
+          <Link href="/membership" className="block text-center w-full mt-4 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all">
             Manage Membership
-          </button>
+          </Link>
         </div>
 
         <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#0b0c1b]/80 border border-white/5 backdrop-blur-md">
           <img
-            src={MOCK_USER.avatar}
-            alt={MOCK_USER.fullName}
+            src={user?.photoURL || MOCK_USER.avatar}
+            alt={profile?.fullName || MOCK_USER.fullName}
             className="w-10 h-10 rounded-full object-cover ring-2 ring-purple-500/30"
           />
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-semibold text-white truncate">{MOCK_USER.fullName}</h4>
-            <p className="text-xs text-muted-foreground truncate">{MOCK_USER.email}</p>
+            <h4 className="text-sm font-semibold text-white truncate">{profile?.fullName || MOCK_USER.fullName}</h4>
+            <p className="text-xs text-muted-foreground truncate">{user?.email || MOCK_USER.email}</p>
           </div>
-          <button className="p-2 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-400 rounded-xl transition-all">
+          <button onClick={logout} className="p-2 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-400 rounded-xl transition-all">
             <LogOut className="w-4 h-4" />
           </button>
         </div>

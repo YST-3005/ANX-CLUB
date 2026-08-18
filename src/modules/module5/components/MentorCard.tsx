@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Card } from '@/components/ui/Card';
 import { ArrowRight, Star } from "lucide-react";
+import toast from 'react-hot-toast';
 
 interface MentorCardProps {
   mentor: {
@@ -60,7 +61,7 @@ export default function MentorCard({ mentor }: MentorCardProps) {
           <Star size={14} className="fill-yellow-400" /> 
           {mentor.rating ? mentor.rating.toFixed(1) : "New"}
         </div>
-        <Link href={`/mentors/${mentor.id}`} className="text-sm font-medium text-white group-hover:text-emerald-400 flex items-center gap-1 transition-colors">
+        <Link href="#" onClick={(e) => { e.preventDefault(); toast.success('Mentor profile coming soon!'); }} className="text-sm font-medium text-white group-hover:text-emerald-400 flex items-center gap-1 transition-colors">
           View Profile <ArrowRight size={14} />
         </Link>
       </div>

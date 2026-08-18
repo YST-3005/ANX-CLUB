@@ -213,11 +213,11 @@ export default function MembershipPage() {
           </div>
 
           <button
-            onClick={handleCheckoutSubmit}
-            disabled={loadingPayment || profile?.membershipType === "Premium"}
+            onClick={() => setShowCheckout(true)}
+            disabled={loadingPayment || profile?.role === "Premium Member"}
             className="w-full py-3 mt-8 bg-primary hover:bg-primary/95 text-primary-foreground font-bold rounded-xl text-xs transition-all shadow-md shadow-primary/15 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {profile?.membershipType === "Premium" ? "Current Active Plan" : "Upgrade Plan Now"} <ArrowRight className="w-4 h-4" />
+            {profile?.role === "Premium Member" ? "Current Active Plan" : "Upgrade Plan Now"} <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </section>

@@ -79,7 +79,7 @@ export default function MentorsPage() {
         reason: bookingDetails.reason,
       })
 
-      toast.success(`Session booked with ${activeBookingMentor.name} for ${bookingDetails.date} @ ${bookingDetails.time}! Check calendar inbox. 📅`)
+      toast.success(`Session booked with ${activeBookingMentor.name} for ${bookingDetails.date} @ ${bookingDetails.time}! Meet link: https://meet.google.com/abc-defg-hij 📅`)
       setActiveBookingMentor(null)
       setBookingDetails({ date: '', time: '10:00 AM', reason: '' })
     } catch (err: any) {
@@ -186,7 +186,14 @@ export default function MentorsPage() {
                   </div>
 
                   <button
-                    onClick={() => setActiveBookingMentor(men)}
+                    onClick={() => {
+                      if (men.isPremiumOnly && profile?.role !== 'Premium Member' && profile?.role !== 'Admin') {
+                        toast.error('This mentor is available for Premium members only.')
+                        window.location.href = '/membership'
+                        return
+                      }
+                      setActiveBookingMentor(men)
+                    }}
                     className="w-full py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:opacity-90 text-white text-xs font-semibold shadow transition-all flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(217,70,239,0.4)] border-none"
                   >
                     <Calendar className="w-3.5 h-3.5" /> Book 1-on-1 Session
@@ -296,7 +303,7 @@ export default function MentorsPage() {
 
                 <div className="p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10 flex gap-2.5 text-[10px] text-muted-foreground leading-normal">
                   <Video className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                  <span>A Google Meet link will be generated automatically and dispatched to your student calendar upon confirmation.</span>
+                  <span>Your session will be scheduled and a direct Google Meet link will be provided upon confirmation.</span>
                 </div>
 
                 <button

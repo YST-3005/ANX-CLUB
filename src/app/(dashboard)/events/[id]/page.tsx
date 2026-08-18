@@ -228,7 +228,9 @@ export default function EventDetailPage({ params }: PageProps) {
 
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground justify-center">
               <HelpCircle className="w-3.5 h-3.5" />
-              <span>Need help? Contact the ANX Operations lead</span>
+              <a href="mailto:support@anxplatform.com" className="hover:underline hover:text-primary transition-colors">
+                Need help? Contact the ANX Operations lead
+              </a>
             </div>
           </div>
 

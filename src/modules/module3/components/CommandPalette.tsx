@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useDeferredValue } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Sparkles, Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
+import toast from "react-hot-toast";
 
 export default function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -77,9 +78,9 @@ export default function CommandPalette() {
 
   const actions = [
     { name: "Browse Events", onSelect: () => router.push('/events') },
-    { name: "Create an Event", onSelect: () => router.push('/events/create') },
+    { name: "Create an Event", onSelect: () => router.push('/admin/events/create') },
     { name: "Toggle Dark Mode", onSelect: () => setTheme(theme === "dark" ? "light" : "dark") },
-    { name: "Messages", onSelect: () => router.push('/messages') },
+    { name: "Messages", onSelect: () => toast.success('Messages feature coming soon!') },
   ];
 
   const filteredActions = actions.filter((action) =>

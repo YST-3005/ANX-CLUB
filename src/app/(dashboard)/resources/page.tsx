@@ -29,7 +29,11 @@ export default function ResourcesPage() {
     })
   }, [search, selectedLevel, selectedCategory])
 
-  const handleAccess = (title: string, isPremium: boolean) => {
+  const handleAccess = (title: string, isPremium: boolean, url: string) => {
+    if (url && url !== '#') {
+      window.open(url, '_blank')
+      return
+    }
     if (isPremium) {
       toast.success(`Access granted! Directing to Premium Resource: ${title} 🚀`)
     } else {
@@ -151,7 +155,7 @@ export default function ResourcesPage() {
                     </div>
 
                     <button
-                      onClick={() => handleAccess(res.title, res.isPremium)}
+                      onClick={() => handleAccess(res.title, res.isPremium, res.url)}
                       className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 border-none ${
                         res.isPremium 
                           ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.4)]'

@@ -13,6 +13,24 @@ export default function CommunityPage() {
   const [loading, setLoading] = useState(true)
   const [newPost, setNewPost] = useState('')
   const deferredNewPost = useDeferredValue(newPost)
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({})
+
+  const handleLike = (id: any) => {
+    setPosts(posts.map(p => p.id === id ? { ...p, likes: p.likes + 1 } : p))
+  }
+
+  const handleShare = async (id: any) => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/community?post=${id}`)
+      toast.success('Link copied to clipboard!')
+    } catch (err) {
+      toast.error('Failed to copy link')
+    }
+  }
+
+  const toggleComments = (id: any) => {
+    setExpandedComments(prev => ({ ...prev, [id]: !prev[id] }))
+  }
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -111,9 +129,9 @@ export default function CommunityPage() {
             className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40 resize-none shadow-inner"
           />
           <div className="flex justify-between items-center">
-            <button className="text-[10px] font-bold text-fuchsia-400 flex items-center gap-1 hover:text-fuchsia-300 transition-colors">
+            <span className="text-[10px] font-bold text-fuchsia-400 flex items-center gap-1 transition-colors cursor-default">
               <Sparkles className="w-3.5 h-3.5" /> Markdown Supported
-            </button>
+            </span>
             <button
               onClick={handlePost}
               disabled={!newPost.trim()}
@@ -152,16 +170,21 @@ export default function CommunityPage() {
               </p>
 
               <div className="flex items-center gap-6 border-t border-white/10 pt-4">
-                <button className="flex items-center gap-2 text-muted-foreground hover:text-fuchsia-400 transition-colors text-xs font-semibold group">
+                <button onClick={() => handleLike(post.id)} className="flex items-center gap-2 text-muted-foreground hover:text-fuchsia-400 transition-colors text-xs font-semibold group">
                   <Heart className="w-4 h-4 group-hover:fill-fuchsia-400" /> {post.likes}
                 </button>
-                <button className="flex items-center gap-2 text-muted-foreground hover:text-white transition-colors text-xs font-semibold">
+                <button onClick={() => toggleComments(post.id)} className="flex items-center gap-2 text-muted-foreground hover:text-white transition-colors text-xs font-semibold">
                   <MessageSquare className="w-4 h-4" /> {post.comments} Comments
                 </button>
-                <button className="flex items-center gap-2 text-muted-foreground hover:text-white transition-colors text-xs font-semibold ml-auto">
+                <button onClick={() => handleShare(post.id)} className="flex items-center gap-2 text-muted-foreground hover:text-white transition-colors text-xs font-semibold ml-auto">
                   <Share2 className="w-4 h-4" /> Share
                 </button>
               </div>
+              {expandedComments[post.id] && (
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <p className="text-xs text-muted-foreground italic">Comments section coming soon...</p>
+                </div>
+              )}
             </motion.div>
           ))}
         </AnimatePresence>

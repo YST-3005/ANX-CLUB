@@ -9,6 +9,7 @@ import { Button } from '../ui/Button';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 function getBreadcrumb(pathname: string): string {
   if (pathname === '/') return 'Dashboard';
@@ -66,12 +67,12 @@ export function TopNav() {
         )}
 
         {/* Assistant / Robot */}
-        <Button variant="ghost" size="icon" className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/30" aria-label="AI Assistant">
+        <Button onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))} variant="ghost" size="icon" className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/30" aria-label="AI Assistant">
           <Bot className="h-5 w-5" />
         </Button>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative text-pink-400 hover:text-pink-300 hover:bg-pink-950/30" aria-label="Notifications">
+        <Button onClick={() => toast.success('All caught up! No new notifications.')} variant="ghost" size="icon" className="relative text-pink-400 hover:text-pink-300 hover:bg-pink-950/30" aria-label="Notifications">
           <Bell className="h-5 w-5" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-pink-500 shadow-[0_0_5px_rgba(236,72,153,0.8)]" />
         </Button>
