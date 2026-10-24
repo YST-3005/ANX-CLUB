@@ -1,30 +1,78 @@
 'use client'
-import React, { useState, use } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft, Calendar, Clock, MapPin, Users, 
   Award, Video, User, CheckCircle2, ChevronRight, 
   MapIcon, LinkIcon, HelpCircle 
 } from 'lucide-react'
-import { MOCK_EVENTS, MOCK_USER } from '@/lib/constants'
+import { MOCK_EVENTS } from '@/lib/constants'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { useAuth } from '@/modules/module3/components/AuthContext'
+import { eventsApi } from '@/lib/api'
+import { getAuthToken } from '@/lib/auth-helpers'
+import { PremiumGateModal } from '@/components/common/PremiumGateModal'
+import { PaidEventCheckoutModal } from '@/components/events/PaidEventCheckoutModal'
 
-interface PageProps {
-  params: Promise<{ id: string }>
-}
-
-export default function EventDetailPage({ params }: PageProps) {
+export default function EventDetailPage({ params }: { params?: { id?: string } }) {
   const router = useRouter()
+  const routeParams = useParams()
+  const { user, profile } = useAuth()
   
-  // Resolve the asynchronous params promise using React.use()
-  const resolvedParams = use(params)
-  const eventId = resolvedParams.id
+  const eventId = (routeParams?.id as string) || params?.id || ''
   
-  const event = MOCK_EVENTS.find(e => e.id === eventId)
-  const [registeredList, setRegisteredList] = useState<string[]>(MOCK_USER.registeredEvents)
+  const [event, setEvent] = useState<any>(null)
+  const [loadingEvent, setLoadingEvent] = useState(true)
+  const [registeredList, setRegisteredList] = useState<string[]>([])
+  const [loadingReg, setLoadingReg] = useState(false)
+
+  useEffect(() => {
+    const fetchEvent = async () => {
+      try {
+        const res = await fetch(`/api/v1/events/${eventId}`)
+        if (res.ok) {
+          const data = await res.json()
+          setEvent(data.data || data)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoadingEvent(false)
+      }
+    }
+    fetchEvent()
+  }, [eventId])
+
+  useEffect(() => {
+    const fetchUserRegistrations = async () => {
+      if (!user) {
+        setRegisteredList([])
+        return
+      }
+      try {
+        const token = await getAuthToken(user)
+        const res = await fetch("/api/v1/module2/dashboard", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.registeredEvents) {
+            setRegisteredList(data.registeredEvents.map((e: any) => e.id))
+          }
+        }
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    fetchUserRegistrations()
+  }, [user])
+
+  if (loadingEvent) {
+    return <div className="min-h-[50vh] flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>
+  }
 
   if (!event) {
     return (
@@ -38,19 +86,67 @@ export default function EventDetailPage({ params }: PageProps) {
     )
   }
 
-  const isUserRegistered = registeredList.includes(event.id)
-  const totalCapacity = event.capacity
-  const registeredCount = isUserRegistered ? event.registeredCount + 1 : event.registeredCount
-  const seatsAvailable = isUserRegistered ? event.seatsAvailable - 1 : event.seatsAvailable
-  const registrationPercentage = Math.round((registeredCount / totalCapacity) * 100)
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const [showPaidModal, setShowPaidModal] = useState(false)
 
-  const handleRegisterToggle = () => {
+  const isUserRegistered = registeredList.includes(event?.id)
+  const totalCapacity = event?.capacity || event?.seats || 100
+  const registeredCount = isUserRegistered ? (event?.registeredCount || 0) + 1 : (event?.registeredCount || 0)
+  const seatsAvailable = isUserRegistered ? Math.max(0, (event?.seatsAvailable || totalCapacity) - 1) : (event?.seatsAvailable || totalCapacity)
+  const registrationPercentage = Math.min(100, Math.round((registeredCount / totalCapacity) * 100))
+
+  const handleRegisterToggle = async () => {
+    if (!user) {
+      toast.error('Please sign in to register for events!')
+      router.push('/login')
+      return
+    }
+
     if (isUserRegistered) {
       setRegisteredList(p => p.filter(id => id !== event.id))
       toast.success('Registration cancelled')
-    } else {
-      setRegisteredList(p => [...p, event.id])
-      toast.success('Registered successfully! Check your inbox for confirmation. 🎉')
+      return
+    }
+
+    if (event.premiumOnly && profile?.role !== 'Premium Member' && profile?.role !== 'Admin') {
+      setShowPremiumModal(true)
+      return
+    }
+
+    if (event.price && event.price > 0) {
+      setShowPaidModal(true)
+      return
+    }
+
+    setLoadingReg(true)
+    try {
+      const token = await getAuthToken(user)
+      const res = await fetch(`/api/v1/events/${event.id}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          name: profile?.fullName || user.displayName || 'Member',
+          email: profile?.email || user.email || '',
+          phone: profile?.phoneNumber || '',
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setRegisteredList(p => [...p, event.id])
+        toast.success('Registered successfully! Confirmation sent to your email +50 XP! 🎉')
+      } else {
+        toast.error(data.message || 'Registration failed.')
+      }
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || 'Registration failed.')
+    } finally {
+      setLoadingReg(false)
     }
   }
 
@@ -71,8 +167,8 @@ export default function EventDetailPage({ params }: PageProps) {
         {/* Cover background */}
         <div className="relative h-64 md:h-80 w-full bg-muted overflow-hidden">
           <img
-            src={event.posterUrl}
-            alt={event.title}
+            src={event.posterUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1000&auto=format&fit=crop"}
+            alt={event.title || 'Event'}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
@@ -83,7 +179,7 @@ export default function EventDetailPage({ params }: PageProps) {
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
               <span className="px-3 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold uppercase tracking-wider">
-                {event.category}
+                {event.category || event.eventType || 'Event'}
               </span>
               {event.premiumOnly && (
                 <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider">
@@ -95,7 +191,7 @@ export default function EventDetailPage({ params }: PageProps) {
               {event.title}
             </h1>
             <p className="text-xs text-blue-100 flex items-center gap-2 font-medium">
-              <Calendar className="w-4 h-4" /> {formatDate(event.date)} @ {event.time} ({event.duration} minutes)
+              <Calendar className="w-4 h-4" /> {formatDate(event.date)} @ {event.time || '10:00 AM'} ({event.duration || 120} minutes)
             </p>
           </div>
 
@@ -128,7 +224,7 @@ export default function EventDetailPage({ params }: PageProps) {
           <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm space-y-4">
             <h3 className="font-display text-lg font-bold text-foreground">About the Event</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              {event.description}
+              {event.description || 'No description provided.'}
             </p>
           </div>
 
@@ -138,7 +234,7 @@ export default function EventDetailPage({ params }: PageProps) {
               <h3 className="font-display text-lg font-bold text-foreground">Session Agenda</h3>
               
               <div className="space-y-4 relative pl-4 border-l border-border/60">
-                {event.agenda.map((item, idx) => (
+                {event.agenda.map((item: string, idx: number) => (
                   <div key={item} className="relative space-y-1">
                     {/* Bullet circle */}
                     <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-primary border-2 border-card" />
@@ -165,7 +261,7 @@ export default function EventDetailPage({ params }: PageProps) {
                   
                   {isUserRegistered ? (
                     <a
-                      href={event.meetingLink}
+                      href={event.meetingLink || event.onlineLink || '#'}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 text-xs text-primary font-bold hover:underline pt-1"
@@ -186,7 +282,7 @@ export default function EventDetailPage({ params }: PageProps) {
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-xs font-bold text-foreground">On-Campus Physical Venue</h4>
-                  <p className="text-xs text-muted-foreground">{event.venue}</p>
+                  <p className="text-xs text-muted-foreground">{event.venue || 'Campus Hall'}</p>
                   {event.address && (
                     <p className="text-[10px] text-muted-foreground/80 mt-1">{event.address}</p>
                   )}
@@ -203,7 +299,7 @@ export default function EventDetailPage({ params }: PageProps) {
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Pricing details</span>
               <h3 className="font-display text-2xl font-black text-foreground">
-                {event.price === 0 ? 'FREE ENTRY' : formatCurrency(event.price)}
+                {!event.price || event.price === 0 ? 'FREE ENTRY' : formatCurrency(event.price)}
               </h3>
             </div>
 
@@ -235,18 +331,18 @@ export default function EventDetailPage({ params }: PageProps) {
           </div>
 
           {/* Speaker Showcase */}
-          {event.speaker && (
+          {(event.speaker || event.speakerName) && (
             <div className="bg-card border border-border/50 rounded-2xl p-6 shadow-sm space-y-5">
               <h3 className="font-display text-base font-bold text-foreground">About the Lead Expert</h3>
               
               <div className="flex items-center gap-3">
                 <img
-                  src={event.speakerImage}
-                  alt={event.speaker}
+                  src={event.speakerImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(event.speaker || event.speakerName || 'Speaker')}&background=8b5cf6&color=fff`}
+                  alt={event.speaker || event.speakerName || 'Speaker'}
                   className="w-12 h-12 rounded-2xl object-cover shrink-0"
                 />
                 <div>
-                  <h4 className="text-xs font-bold text-foreground leading-snug">{event.speaker}</h4>
+                  <h4 className="text-xs font-bold text-foreground leading-snug">{event.speaker || event.speakerName}</h4>
                   <span className="inline-flex items-center gap-0.5 text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded font-semibold mt-1">
                     Featured Speaker
                   </span>
@@ -262,6 +358,27 @@ export default function EventDetailPage({ params }: PageProps) {
           )}
         </div>
       </section>
+
+      {/* Premium Gate Modal */}
+      <PremiumGateModal
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        title="Unlock Premium Masterclass"
+        description="This event is exclusively reserved for ANX Premium Elite members. Upgrade your membership to attend all live workshops, hackathons, and priority Q&A sessions."
+        featureName={event.title}
+      />
+
+      {/* Paid Event Checkout & Ticket Modal */}
+      <PaidEventCheckoutModal
+        isOpen={showPaidModal}
+        onClose={() => setShowPaidModal(false)}
+        event={event}
+        user={user}
+        profile={profile}
+        onSuccess={(ticketData) => {
+          setRegisteredList(p => [...p, event.id])
+        }}
+      />
     </div>
   )
 }

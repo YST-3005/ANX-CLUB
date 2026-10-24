@@ -1,23 +1,50 @@
 'use client'
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Users, Search, ShieldCheck, Mail, GraduationCap, 
   Trash2, UserCheck, ToggleLeft, ToggleRight, Plus 
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-
-const mockMembers = [
-  { id: 'mem-1', fullName: 'Arjun Sharma', email: 'arjun.sharma@iitm.ac.in', college: 'IIT Madras', year: '3rd Year', tier: 'premium', status: 'active' },
-  { id: 'mem-2', fullName: 'Priya Nambiar', email: 'priya.n@nitt.edu', college: 'NIT Trichy', year: '4th Year', tier: 'premium', status: 'active' },
-  { id: 'mem-3', fullName: 'Rahul Dev', email: 'rahul.dev@bits.ac.in', college: 'BITS Pilani', year: '2nd Year', tier: 'free', status: 'active' },
-  { id: 'mem-4', fullName: 'Sneha Sen', email: 'snehasen@iitb.ac.in', college: 'IIT Bombay', year: '1st Year', tier: 'free', status: 'suspended' },
-  { id: 'mem-5', fullName: 'Amit Roy', email: 'amit.roy@iitd.ac.in', college: 'IIT Delhi', year: '3rd Year', tier: 'premium', status: 'active' },
-]
+import { useAuth } from '@/modules/module3/components/AuthContext'
+import { getAuthToken } from '@/lib/auth-helpers'
 
 export default function ManageMembersPage() {
-  const [members, setMembers] = useState(mockMembers)
+  const [members, setMembers] = useState<any[]>([])
   const [search, setSearch] = useState('')
+  const { user } = useAuth()
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      if (!user) return
+      try {
+        const token = await getAuthToken(user)
+        const res = await fetch('/api/v1/admin/users', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setMembers(data.map((u: any) => ({
+             id: u.id, 
+             fullName: u.fullName || u.email?.split('@')[0] || 'Unknown', 
+             email: u.email || 'N/A', 
+             college: u.college || 'N/A', 
+             year: u.year || 'N/A', 
+             tier: u.membershipType || 'free', 
+             status: u.status || 'active'
+          })))
+        } else {
+          toast.error('Failed to load members')
+        }
+      } catch(err) {
+         console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchMembers()
+  }, [user])
 
   const filteredMembers = useMemo(() => {
     return members.filter(m => {
@@ -27,16 +54,32 @@ export default function ManageMembersPage() {
     })
   }, [search, members])
 
-  const handleToggleStatus = (id: string, current: string) => {
+  const handleToggleStatus = async (id: string, current: string) => {
     const next = current === 'active' ? 'suspended' : 'active'
     setMembers(prev => prev.map(m => m.id === id ? { ...m, status: next } : m))
     toast.success(`Account status updated to ${next}!`)
   }
 
-  const handleToggleTier = (id: string, current: string) => {
+  const handleToggleTier = async (id: string, current: string) => {
     const next = current === 'premium' ? 'free' : 'premium'
     setMembers(prev => prev.map(m => m.id === id ? { ...m, tier: next } : m))
-    toast.success(`Membership tier updated to ${next}!`)
+    
+    if (user) {
+      try {
+        const token = await getAuthToken(user)
+        await fetch('/api/v1/admin/users/update', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json', 
+            ...(token ? { Authorization: `Bearer ${token}` } : {}) 
+          },
+          body: JSON.stringify({ targetUid: id, membershipType: next })
+        })
+        toast.success(`Membership tier updated to ${next}!`)
+      } catch (err) {
+        toast.error('Failed to update tier in backend')
+      }
+    }
   }
 
   const handleDelete = (id: string, name: string) => {

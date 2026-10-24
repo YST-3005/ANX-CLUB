@@ -1,6 +1,7 @@
 'use client'
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Search, SlidersHorizontal, Calendar, Clock, 
@@ -12,6 +13,9 @@ import { formatDate, formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/modules/module3/components/AuthContext'
 import { eventsApi } from '@/lib/api'
+import { getAuthToken } from '@/lib/auth-helpers'
+import { PremiumGateModal } from '@/components/common/PremiumGateModal'
+import { PaidEventCheckoutModal } from '@/components/events/PaidEventCheckoutModal'
 
 const categories = [
   { id: 'all', label: 'All Categories' },
@@ -30,15 +34,23 @@ const EventCardMemo = React.memo(function EventCardMemoItem({
   isUserRegistered: boolean;
   onRegisterToggle: (id: string, title: string) => void;
 }) {
+  const eventDate = new Date(evt.date);
+  const isCompleted = evt.status === 'completed' || eventDate < new Date();
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="glass rounded-2xl overflow-hidden flex flex-col justify-between hover:border-primary/30 transition-all hover:shadow-[0_0_20px_rgba(217,70,239,0.15)] group relative"
+      className={`glass rounded-2xl overflow-hidden flex flex-col justify-between transition-all group relative ${
+        isCompleted 
+          ? 'opacity-65 grayscale-[35%] hover:opacity-95 hover:grayscale-0 border-white/5' 
+          : 'hover:border-primary/30 hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]'
+      }`}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 pointer-events-none z-0" />
+      
       {/* Poster Image */}
       <div className="relative h-44 w-full overflow-hidden bg-muted">
         <img
@@ -56,7 +68,11 @@ const EventCardMemo = React.memo(function EventCardMemoItem({
         </div>
 
         <div className="absolute top-3.5 right-3.5">
-          {evt.premiumOnly ? (
+          {isCompleted ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-zinc-800/90 text-zinc-300 text-[10px] font-bold uppercase tracking-wider shadow border border-white/10">
+              🏁 Finished
+            </span>
+          ) : evt.premiumOnly ? (
             <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-amber-500 text-white text-[9px] font-bold uppercase tracking-wider shadow">
               <Award className="w-2.5 h-2.5" /> Premium
             </span>
@@ -66,6 +82,15 @@ const EventCardMemo = React.memo(function EventCardMemoItem({
             </span>
           )}
         </div>
+
+        {/* Hover overlay text for completed events */}
+        {isCompleted && (
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+            <span className="px-3.5 py-1.5 rounded-xl bg-zinc-900/90 border border-white/20 text-white text-xs font-bold shadow-lg tracking-wide uppercase">
+              Event Concluded
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Body Content */}
@@ -120,14 +145,19 @@ const EventCardMemo = React.memo(function EventCardMemoItem({
           </Link>
 
           <button
-            onClick={() => onRegisterToggle(evt.id, evt.title)}
+            onClick={() => !isCompleted && onRegisterToggle(evt.id, evt.title)}
+            disabled={isCompleted}
             className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-1.5 ${
-              isUserRegistered
+              isCompleted
+                ? 'bg-white/5 text-zinc-400 border border-white/10 cursor-not-allowed'
+                : isUserRegistered
                 ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
                 : 'bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white hover:opacity-90 shadow-[0_0_15px_rgba(217,70,239,0.4)] border-none'
             }`}
           >
-            {isUserRegistered ? (
+            {isCompleted ? (
+              'Completed / Finished'
+            ) : isUserRegistered ? (
               <>
                 <CheckCircle2 className="w-3.5 h-3.5" /> Registered
               </>
@@ -142,7 +172,8 @@ const EventCardMemo = React.memo(function EventCardMemoItem({
 });
 
 export default function EventsPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [priceFilter, setPriceFilter] = useState('all') // 'all' | 'free' | 'premium'
@@ -174,8 +205,9 @@ export default function EventsPage() {
     try {
       // Endpoint logic instead of Firebase direct fetch (mocking it if endpoint is not fully there for GET /api/v1/events/registrations, though user prompt didn't specify one for getting user's own regs perfectly, it only mentioned GET /api/v1/events/:id/registrations. I will mock the list for now).
       // Assuming a general user profile or dashboard endpoint returns their registered list as we did in Dashboard.
+      const token = await getAuthToken(user)
       const res = await fetch("/api/v1/module2/dashboard", {
-        headers: { Authorization: `Bearer ${await user.getIdToken()}` }
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
       })
       const data = await res.json()
       if (data.registeredEvents) {
@@ -196,28 +228,66 @@ export default function EventsPage() {
     }
   }, [user, fetchUserRegistrations])
 
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const [showPaidModal, setShowPaidModal] = useState(false)
+  const [activeModalEvent, setActiveModalEvent] = useState<any | null>(null)
+
   const handleRegisterToggle = async (eventId: string, title: string) => {
     if (!user) {
       toast.error("Please sign in to register for events!")
+      router.push('/login')
       return
     }
-    
+
+    const event = events.find((item) => item.id === eventId)
+    if (!event) return
+
+    if (event.premiumOnly && profile?.role !== 'Premium Member' && profile?.role !== 'Admin') {
+      setActiveModalEvent(event)
+      setShowPremiumModal(true)
+      return
+    }
+
     const isRegistered = registeredList.includes(eventId)
+    if (isRegistered) {
+      setRegisteredList(p => p.filter(id => id !== eventId))
+      toast.success(`Registration cancelled for: ${title}`)
+      return
+    }
+
+    if (event.price && event.price > 0) {
+      setActiveModalEvent(event)
+      setShowPaidModal(true)
+      return
+    }
+
     try {
-      if (isRegistered) {
-        toast.error('Cancellation endpoint not strictly defined. Leaving as is.')
-        return
-      } else {
-        // Register using api.ts
-        await eventsApi.register(eventId)
-        
+      const token = await getAuthToken(user)
+      const res = await fetch(`/api/v1/events/${eventId}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          name: profile?.fullName || user.displayName || 'Member',
+          email: profile?.email || user.email || '',
+          phone: profile?.phoneNumber || '',
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
         setRegisteredList(p => [...p, eventId])
-        setEvents(prev => prev.map(e => e.id === eventId ? { ...e, seatsAvailable: Math.max(0, (e.seatsAvailable || 0) - 1) } : e))
-        toast.success(`Successfully registered for: ${title}! 🎉`)
+        setEvents(prev => prev.map(e => e.id === eventId ? { ...e, registeredCount: (e.registeredCount || 0) + 1, seatsAvailable: Math.max(0, (e.seatsAvailable || 100) - 1) } : e))
+        toast.success(`Successfully registered for ${title}! Confirmation sent to your email +50 XP! 🎉`)
+      } else {
+        toast.error(data.message || 'Failed to register.')
       }
     } catch (err: any) {
       console.error(err)
-      toast.error("Failed to update registration status.")
+      toast.error(err.message || 'Failed to update registration status.')
     }
   }
 
@@ -359,6 +429,33 @@ export default function EventsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Premium Gate Modal */}
+      <PremiumGateModal
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        title="Unlock Premium Masterclass"
+        description="This event is exclusively reserved for ANX Premium members. Upgrade to unlock all live workshops, hackathons, and priority Q&A sessions."
+        featureName={activeModalEvent?.title}
+      />
+
+      {/* Paid Event Checkout Modal */}
+      {activeModalEvent && (
+        <PaidEventCheckoutModal
+          isOpen={showPaidModal}
+          onClose={() => {
+            setShowPaidModal(false)
+            setActiveModalEvent(null)
+          }}
+          event={activeModalEvent}
+          user={user}
+          profile={profile}
+          onSuccess={(ticketData) => {
+            setRegisteredList(p => [...p, activeModalEvent.id])
+            setEvents(prev => prev.map(e => e.id === activeModalEvent.id ? { ...e, registeredCount: (e.registeredCount || 0) + 1, seatsAvailable: Math.max(0, (e.seatsAvailable || 100) - 1) } : e))
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -57,11 +57,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
       // Add in-app notification
       await adminDb.collection('notifications').add({
-        userId: requestData.memberId,
+        recipientId: requestData.memberId,
         title: `Mentor Session ${status}`,
-        message: `Your mentoring session with ${requestData.mentorName} has been ${status.toLowerCase()}.`,
-        read: false,
-        link: '/dashboard',
+        body: `Your mentoring session with ${requestData.mentorName} has been ${status.toLowerCase()}.`,
+        isRead: false,
+        actionUrl: '/dashboard',
+        channels: ['in_app'],
         createdAt: new Date().toISOString()
       });
 
@@ -71,6 +72,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         mentorBookingApprovalEmail(requestData.mentorName, requestData.preferredDate, emailStatus, meetingLink),
         attachments
       );
+    }
+
+    if (status === 'Approved' || status === 'Completed') {
+      try {
+        const { awardMentorSessionXP } = await import('@/lib/gamification');
+        await awardMentorSessionXP(requestData.memberId, params.id, requestData.mentorName);
+      } catch (xpErr) {
+        console.warn('Mentor session XP award skipped:', xpErr);
+      }
     }
 
     return NextResponse.json({ success: true, status });

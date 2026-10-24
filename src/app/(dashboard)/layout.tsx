@@ -1,8 +1,10 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
+import { useAuth } from '@/modules/module3/components/AuthContext'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -10,6 +12,30 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { user, profile, loading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (loading) return
+    const email = (user?.email || profile?.email || '').toLowerCase().trim()
+    const isAdmin = profile?.role === 'Admin' || email === 'admin@algorithmaliens.com' || email === 'admin@anx.club'
+
+    if (isAdmin) {
+      router.replace('/admin')
+    }
+  }, [loading, user, profile, router])
+
+  const email = (user?.email || profile?.email || '').toLowerCase().trim()
+  const isAdmin = profile?.role === 'Admin' || email === 'admin@algorithmaliens.com' || email === 'admin@anx.club'
+
+  if (isAdmin) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-zinc-400 text-sm gap-3">
+        <div className="w-6 h-6 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+        <span>Redirecting to Admin Portal...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -54,9 +80,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Scrollable Main Area */}
         <main className="flex-1 overflow-y-auto scrollbar-thin bg-background/50 relative">
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: 0.15 }}
             className="p-6 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-16"
           >
             {children}

@@ -1,4 +1,4 @@
-import {adminDb} from '@/lib/firebase/admin';
+import {adminDb, logFirestoreFallback} from '@/lib/firebase/admin';
 const db = adminDb;
 import { MentorBooking } from '@/modules/module2/types/dashboard';
 import { getBookingsByUserId } from '@/modules/module2/data';
@@ -32,8 +32,7 @@ export async function getMentorBookings(
       });
       return bookings;
     } catch (error) {
-      console.error('Error fetching mentor bookings from Firestore:', error);
-      return [];
+      logFirestoreFallback('Mentor bookings service', error);
     }
   }
 

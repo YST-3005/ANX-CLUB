@@ -11,9 +11,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    const { eventId } = await request.json();
-    if (!eventId) {
-      return NextResponse.json({ success: false, message: "eventId is required." }, { status: 400 });
+    const { eventId, paymentType, billingPeriod = "annual" } = await request.json();
+    const isMembership = paymentType === "membership";
+    if (!eventId && !isMembership) {
+      return NextResponse.json({ success: false, message: "eventId or membership paymentType is required." }, { status: 400 });
+    }
+
+    if (isMembership) {
+      const amount = billingPeriod === "monthly" ? 149 : 999;
+      const order = await createRazorpayOrder({
+        amount,
+        currency: "INR",
+        receipt: `membership_${userId.slice(0, 8)}_${Date.now()}`,
+        notes: { userId, paymentType, billingPeriod },
+      });
+      await adminDb.collection("payments").doc(order.id).set({
+        orderId: order.id,
+        userId,
+        amount,
+        currency: "INR",
+        status: "pending",
+        paymentType: "membership",
+        billingPeriod,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return NextResponse.json({
+        success: true,
+        orderId: order.id,
+        amount,
+        currency: "INR",
+        keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      });
     }
 
     const eventDoc = await adminDb.collection("events").doc(eventId).get();

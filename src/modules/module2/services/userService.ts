@@ -1,4 +1,4 @@
-import {adminDb} from '@/lib/firebase/admin';
+import {adminDb, logFirestoreFallback} from '@/lib/firebase/admin';
 const db = adminDb;
 import { UserProfile } from '@/modules/module2/types/dashboard';
 import { getUserByIdOrEmail } from '@/modules/module2/data';
@@ -19,10 +19,8 @@ export async function getUser(
         const data = doc.data();
         return data ? (data as UserProfile) : {};
       }
-      return {};
     } catch (error) {
-      console.error('Error fetching user from Firestore:', error);
-      return {};
+      logFirestoreFallback('User service', error);
     }
   }
 

@@ -1,4 +1,4 @@
-import {adminDb} from '@/lib/firebase/admin';
+import {adminDb, logFirestoreFallback} from '@/lib/firebase/admin';
 const db = adminDb;
 import { ProjectInfo } from '@/modules/module2/types/dashboard';
 import { getProjectsByUserId } from '@/modules/module2/data';
@@ -48,8 +48,7 @@ export async function getProjects(
 
       return Array.from(projectsMap.values());
     } catch (error) {
-      console.error('Error fetching projects from Firestore:', error);
-      return [];
+      logFirestoreFallback('Projects service', error);
     }
   }
 

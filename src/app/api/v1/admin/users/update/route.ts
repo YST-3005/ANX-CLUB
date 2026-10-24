@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
 import {adminDb} from '@/lib/firebase/admin';
+import { verifyAuthToken } from '@/lib/firebase/admin-auth';
 const db = adminDb;
 
 export async function POST(request: Request) {
   try {
-    const { adminUid, targetUid, membershipType, membershipExpiry } = await request.json();
-
-    if (!adminUid || !targetUid) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const verifiedUser = await verifyAuthToken(request);
+    if (!verifiedUser || verifiedUser.role !== 'Admin') {
+      return NextResponse.json({ error: 'Unauthorized: Admins only' }, { status: 403 });
     }
 
-    // Basic security check: ensure requester is an admin
-    const adminDoc = await db.collection('users').doc(adminUid).get();
-    if (!adminDoc.exists || adminDoc.data()?.role !== 'Admin') {
-      return NextResponse.json({ error: 'Unauthorized: Admins only' }, { status: 403 });
+    const { targetUid, membershipType, membershipExpiry } = await request.json();
+
+    if (!targetUid) {
+      return NextResponse.json({ error: 'Missing targetUid' }, { status: 400 });
     }
 
     // Prepare update payload

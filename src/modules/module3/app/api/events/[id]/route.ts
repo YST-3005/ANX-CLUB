@@ -7,7 +7,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   try {
     const docRef = await db.collection('events').doc(params.id).get();
     
-    if (!docRef.exists()) {
+    if (!docRef.exists) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 

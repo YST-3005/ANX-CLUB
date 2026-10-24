@@ -1,6 +1,7 @@
 "use client";
 
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { useEffect, useState } from 'react';
 
 const data = [
   { name: 'Jan', events: 1, projects: 0 },
@@ -12,9 +13,15 @@ const data = [
 ];
 
 export function ActivityChart() {
+  const [chartReady, setChartReady] = useState(false);
+
+  useEffect(() => {
+    setChartReady(true);
+  }, []);
+
   return (
     <div style={{ width: '100%', height: 300 }}>
-      <ResponsiveContainer width="100%" height="100%">
+      {chartReady && <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="colorEvents" x1="0" y1="0" x2="0" y2="1">
@@ -36,7 +43,7 @@ export function ActivityChart() {
           <Area type="monotone" dataKey="projects" stroke="var(--accent-color)" fillOpacity={1} fill="url(#colorProjects)" />
           <Area type="monotone" dataKey="events" stroke="var(--primary-color)" fillOpacity={1} fill="url(#colorEvents)" />
         </AreaChart>
-      </ResponsiveContainer>
+      </ResponsiveContainer>}
     </div>
   );
 }

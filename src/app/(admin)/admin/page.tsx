@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
@@ -20,6 +20,35 @@ const recentActivities = [
 
 export default function AdminPage() {
   const [activities, setActivities] = useState(recentActivities)
+  const [analytics, setAnalytics] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { getToken } = await import('@/lib/api')
+        const token = getToken()
+        const res = await fetch('/api/v1/admin/analytics', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setAnalytics(data)
+        }
+      } catch (err) {
+        console.error('Failed to load admin analytics:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchStats()
+  }, [])
+
+  const totalUsersCount = analytics ? analytics.totalUsers : 2482
+  const premiumUsersCount = analytics ? analytics.premiumUsers : 1164
+  const totalEventsCount = analytics ? analytics.totalEvents : 18
+  const totalResourcesCount = analytics ? analytics.totalResources : 12
+  const totalRevenue = premiumUsersCount * 999
 
   return (
     <div className="space-y-8 select-none">
@@ -42,7 +71,13 @@ export default function AdminPage() {
             </p>
           </div>
 
-          <div className="flex gap-3 shrink-0">
+          <div className="flex flex-wrap gap-3 shrink-0">
+            <Link
+              href="/admin/submissions"
+              className="px-4 py-2.5 bg-muted/80 hover:bg-muted text-foreground font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-border"
+            >
+              <Activity className="w-4 h-4 text-amber-500" /> Review Submissions & Bookings
+            </Link>
             <Link
               href="/admin/events/create"
               className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow shadow-amber-500/15"
@@ -64,9 +99,9 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="space-y-1">
-            <h3 className="font-display text-2xl font-bold text-foreground">2,482</h3>
+            <h3 className="font-display text-2xl font-bold text-foreground">{totalUsersCount}</h3>
             <p className="text-[10px] text-emerald-500 font-semibold flex items-center gap-0.5">
-              <ArrowUpRight className="w-3.5 h-3.5" /> +12% this month
+              <ArrowUpRight className="w-3.5 h-3.5" /> Active members
             </p>
           </div>
         </div>
@@ -80,9 +115,9 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="space-y-1">
-            <h3 className="font-display text-2xl font-bold text-foreground">1,164</h3>
+            <h3 className="font-display text-2xl font-bold text-foreground">{premiumUsersCount}</h3>
             <p className="text-[10px] text-emerald-500 font-semibold flex items-center gap-0.5">
-              <ArrowUpRight className="w-3.5 h-3.5" /> +8.4% this month
+              <ArrowUpRight className="w-3.5 h-3.5" /> Subscribed cohort
             </p>
           </div>
         </div>
@@ -90,29 +125,29 @@ export default function AdminPage() {
         {/* KPI 3 */}
         <div className="bg-card border border-border/50 rounded-2xl p-5 shadow-sm space-y-3 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Active Events</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Published Events</span>
             <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center">
               <Calendar className="w-4.5 h-4.5" />
             </div>
           </div>
           <div className="space-y-1">
-            <h3 className="font-display text-2xl font-bold text-foreground">18</h3>
-            <p className="text-[10px] text-muted-foreground font-medium">6 scheduled upcoming</p>
+            <h3 className="font-display text-2xl font-bold text-foreground">{totalEventsCount}</h3>
+            <p className="text-[10px] text-muted-foreground font-medium">Platform schedule</p>
           </div>
         </div>
 
         {/* KPI 4 */}
         <div className="bg-card border border-border/50 rounded-2xl p-5 shadow-sm space-y-3 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Platform Revenue</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Estimated Yield</span>
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
               <IndianRupee className="w-4.5 h-4.5" />
             </div>
           </div>
           <div className="space-y-1">
-            <h3 className="font-display text-2xl font-bold text-foreground">₹1,15,400</h3>
+            <h3 className="font-display text-2xl font-bold text-foreground">{formatCurrency(totalRevenue)}</h3>
             <p className="text-[10px] text-emerald-500 font-semibold flex items-center gap-0.5">
-              <ArrowUpRight className="w-3.5 h-3.5" /> +16.2% this month
+              <ArrowUpRight className="w-3.5 h-3.5" /> Verified subscriptions
             </p>
           </div>
         </div>

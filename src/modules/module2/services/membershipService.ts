@@ -1,4 +1,4 @@
-import {adminDb} from '@/lib/firebase/admin';
+import {adminDb, logFirestoreFallback} from '@/lib/firebase/admin';
 const db = adminDb;
 import { MembershipInfo } from '@/modules/module2/types/dashboard';
 import { getMembershipByUserId } from '@/modules/module2/data';
@@ -55,10 +55,8 @@ export async function getMembership(
         const data = doc.data();
         return data ? enrichMembership(data) : {};
       }
-      return {};
     } catch (error) {
-      console.error('Error fetching membership from Firestore:', error);
-      return {};
+      logFirestoreFallback('Membership service', error);
     }
   }
 

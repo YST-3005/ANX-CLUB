@@ -12,16 +12,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Use a deterministic ID for registration to check existence inside transaction easily
     const registrationId = `${eventId}_${userId}`;
-    const regRef = doc(db, 'eventRegistrations', registrationId);
-    const eventRef = doc(db, 'events', eventId);
+    const regRef = db.collection('eventRegistrations').doc(registrationId);
+    const eventRef = db.collection('events').doc(eventId);
 
     // Run in a transaction to prevent overselling seats
-    await runTransaction(db, async (transaction) => {
+    await db.runTransaction(async (transaction: any) => {
       const eventDoc = await transaction.get(eventRef);
 
-      if (!eventDoc.exists()) {
+      if (!eventDoc.exists) {
         throw new Error('Event not found');
       }
 
@@ -38,7 +37,7 @@ export async function POST(request: Request) {
 
       // Check if already registered
       const regDoc = await transaction.get(regRef);
-      if (regDoc.exists()) {
+      if (regDoc.exists) {
         throw new Error('You are already registered for this event.');
       }
 
@@ -63,8 +62,8 @@ export async function POST(request: Request) {
     });
 
     // Send email outside the transaction to avoid blocking it
-    const finalEventDoc = await getDoc(eventRef);
-    const eventTitle = finalEventDoc.exists() ? finalEventDoc.data()?.title : 'the event';
+    const finalEventDoc = await eventRef.get();
+    const eventTitle = finalEventDoc.exists ? finalEventDoc.data()?.title : 'the event';
     
     try {
       await sendEmail(userEmail, "Event Registration Confirmed", eventRegistrationEmail(eventTitle, userName));
@@ -75,13 +74,14 @@ export async function POST(request: Request) {
 
     // Create a real-time notification for the user
     try {
-      await db.collection('notifications').add({
-        userId,
+      const { sendOmnichannelNotification } = await import('@/lib/notifications');
+      await sendOmnichannelNotification({
+        recipientId: userId,
         title: 'Event Registration Successful',
-        message: `You are confirmed for ${eventTitle}.`,
-        link: `/events/${eventId}`,
-        read: false,
-        createdAt: new Date().toISOString()
+        body: `You are confirmed for ${eventTitle}.`,
+        actionUrl: `/events/${eventId}`,
+        channels: ['in_app'],
+        category: 'event'
       });
     } catch (notifError) {
       console.error('Failed to create notification:', notifError);

@@ -5,36 +5,8 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 98%;
-    --foreground: 240 10% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 10%;
-    
-    /* Vibrant Fuchsia/Pink */
-    --primary: 292 84% 61%;
-    --primary-foreground: 0 0% 100%;
-    
-    --secondary: 240 10% 96%;
-    --secondary-foreground: 240 10% 10%;
-    
-    --muted: 240 10% 96%;
-    --muted-foreground: 240 5% 45%;
-    
-    --accent: 292 84% 95%;
-    --accent-foreground: 292 84% 30%;
-    
-    --border: 240 10% 90%;
-    --input: 240 10% 90%;
-    --ring: 292 84% 61%;
-    --radius: 1rem;
-    
-    --sidebar-bg: 0 0% 100%;
-    --sidebar-border: 240 10% 90%;
-  }
-
-  .dark {
-    /* Deep space neon aesthetic */
+  :root, .dark {
+    /* Deep space neon aesthetic — 100% Dark Theme Only */
     --background: 230 40% 6%;
     --foreground: 0 0% 100%;
     --card: 230 40% 10%;
@@ -56,6 +28,7 @@
     --border: 230 40% 18%;
     --input: 230 40% 18%;
     --ring: 290 90% 60%;
+    --radius: 1rem;
     
     --sidebar-bg: 230 40% 6%;
     --sidebar-border: 230 40% 15%;

@@ -1,9 +1,5 @@
 import * as admin from 'firebase-admin';
 
-const projectId = process.env.FIREBASE_PROJECT_ID;
-const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-
 class FirebaseAdminSingleton {
   private static instance: admin.app.App | null = null;
   private static dbInstance: admin.firestore.Firestore | null = null;
@@ -19,6 +15,10 @@ class FirebaseAdminSingleton {
       this.instance = admin.apps[0]!;
       return this.instance;
     }
+
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
     if (!projectId || !clientEmail || !privateKey) {
       throw new Error("Firebase Admin SDK missing required credentials.");
@@ -79,3 +79,13 @@ export const adminStorage = new Proxy({} as admin.storage.Storage, {
     return typeof value === 'function' ? value.bind(storage) : value;
   }
 });
+
+export function logFirestoreFallback(service: string, error: unknown): void {
+  const firestoreError = error as { code?: number | string };
+  if (firestoreError.code === 5 || firestoreError.code === '5') {
+    console.warn(`${service}: Firestore database unavailable; using mock fallback.`);
+    return;
+  }
+
+  console.warn(`${service}: Firestore request failed; using mock fallback.`, error);
+}

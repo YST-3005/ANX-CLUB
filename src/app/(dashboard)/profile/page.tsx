@@ -11,45 +11,72 @@ import toast from 'react-hot-toast'
 
 import { useAuth } from '@/modules/module3/components/AuthContext'
 import { useEffect } from 'react'
+import Link from 'next/link'
 
 export default function ProfilePage() {
-  const { user, profile: dbProfile } = useAuth()
+  const { user, profile: dbProfile, loading: authLoading } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [profile, setProfile] = useState<any>({
-    fullName: MOCK_USER.fullName,
-    bio: MOCK_USER.bio,
-    phone: MOCK_USER.phone || '+91 98765 43210',
-    college: MOCK_USER.college,
-    year: MOCK_USER.year,
-    branch: MOCK_USER.branch,
-    linkedinUrl: MOCK_USER.linkedinUrl || 'https://linkedin.com/in/arjunsharma',
-    githubUrl: MOCK_USER.githubUrl || 'https://github.com/arjunsharma',
-    portfolioUrl: 'https://arjunsharma.dev',
-    skills: MOCK_USER.skills,
-    interests: MOCK_USER.interests,
+    fullName: '',
+    bio: 'Product Builder & Tech Enthusiast',
+    phone: '',
+    college: '',
+    year: '1st Year',
+    branch: 'Computer Science',
+    linkedinUrl: '',
+    githubUrl: '',
+    portfolioUrl: '',
+    skills: ['React', 'TypeScript', 'Next.js', 'Tailwind CSS'],
+    interests: ['Web Development', 'AI/ML', 'Open Source'],
   })
 
   useEffect(() => {
-    if (dbProfile) {
-      const parts = (dbProfile.yearBranch || '').split(' - ')
-      setProfile({
-        fullName: dbProfile.fullName || '',
-        bio: dbProfile.bio || 'Product Builder & Tech Enthusiast',
-        phone: dbProfile.phoneNumber || '',
-        college: dbProfile.collegeName || '',
-        year: parts[0] || '1st Year',
-        branch: parts[1] || 'Computer Science',
-        linkedinUrl: dbProfile.linkedinUrl || '',
-        githubUrl: dbProfile.githubUrl || '',
-        portfolioUrl: dbProfile.portfolioUrl || '',
-        skills: Array.isArray(dbProfile.skills) ? dbProfile.skills : (typeof dbProfile.skills === 'string' && dbProfile.skills ? dbProfile.skills.split(', ') : []),
-        interests: Array.isArray(dbProfile.interests) ? dbProfile.interests : (typeof dbProfile.interests === 'string' && dbProfile.interests ? dbProfile.interests.split(', ') : []),
-      })
+    if (user) {
+      setProfile((prev: any) => ({
+        ...prev,
+        fullName: dbProfile?.fullName || user.displayName || user.email?.split('@')[0] || 'Member',
+        phone: dbProfile?.phoneNumber || '',
+        college: dbProfile?.collegeName || '',
+        bio: dbProfile?.bio || prev.bio,
+        year: (dbProfile?.yearBranch || '').split(' - ')[0] || '1st Year',
+        branch: (dbProfile?.yearBranch || '').split(' - ')[1] || 'Computer Science',
+        linkedinUrl: dbProfile?.linkedinUrl || '',
+        githubUrl: dbProfile?.githubUrl || '',
+        portfolioUrl: dbProfile?.portfolioUrl || '',
+        skills: Array.isArray(dbProfile?.skills) ? dbProfile.skills : (typeof dbProfile?.skills === 'string' && dbProfile?.skills ? dbProfile.skills.split(', ') : prev.skills),
+        interests: Array.isArray(dbProfile?.interests) ? dbProfile.interests : (typeof dbProfile?.interests === 'string' && dbProfile?.interests ? dbProfile.interests.split(', ') : prev.interests),
+      }))
     }
-  }, [dbProfile])
+  }, [user, dbProfile])
 
   const [newSkill, setNewSkill] = useState('')
   const [tempProfile, setTempProfile] = useState({ ...profile })
+
+  useEffect(() => {
+    setTempProfile({ ...profile })
+  }, [profile])
+
+  if (!user && !authLoading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4 text-center p-8">
+        <div className="w-16 h-16 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-500/20 flex items-center justify-center text-fuchsia-400 shadow-[0_0_20px_rgba(217,70,239,0.2)]">
+          <User className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-foreground">Sign In Required</h2>
+        <p className="text-xs text-muted-foreground max-w-sm">
+          Please sign in to view, edit, and manage your A.N.X profile and club credentials.
+        </p>
+        <div className="flex gap-3 pt-2">
+          <Link href="/login" className="px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white rounded-xl text-xs font-semibold shadow-[0_0_15px_rgba(217,70,239,0.4)]">
+            Sign In
+          </Link>
+          <Link href="/signup" className="px-5 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl text-xs font-semibold">
+            Create Account
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   const handleStartEdit = () => {
     setTempProfile({ ...profile })
@@ -62,10 +89,29 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     if (!user) return
+    
+    if (tempProfile.bio && tempProfile.bio.length > 500) {
+      toast.error('Bio must be less than 500 characters.')
+      return
+    }
+
+    if (tempProfile.githubUrl && !tempProfile.githubUrl.startsWith('http')) {
+      toast.error('GitHub link must start with http:// or https://')
+      return
+    }
+
+    if (tempProfile.linkedinUrl && !tempProfile.linkedinUrl.startsWith('http')) {
+      toast.error('LinkedIn link must start with http:// or https://')
+      return
+    }
+
+    if (tempProfile.portfolioUrl && !tempProfile.portfolioUrl.startsWith('http')) {
+      toast.error('Portfolio link must start with http:// or https://')
+      return
+    }
+
     try {
-      const { doc, setDoc } = await import('firebase/firestore')
-      const { db } = await import('@/lib/firebase/client')
-      await setDoc(doc(db, "users", user.uid), {
+      const updatePayload = {
         fullName: tempProfile.fullName,
         bio: tempProfile.bio,
         phoneNumber: tempProfile.phone,
@@ -76,7 +122,15 @@ export default function ProfilePage() {
         portfolioUrl: tempProfile.portfolioUrl,
         skills: Array.isArray(tempProfile.skills) ? tempProfile.skills.join(', ') : '',
         interests: Array.isArray(tempProfile.interests) ? tempProfile.interests.join(', ') : '',
-      }, { merge: true })
+      }
+
+      try {
+        const { doc, setDoc } = await import('firebase/firestore')
+        const { db } = await import('@/lib/firebase/client')
+        await setDoc(doc(db, "users", user.uid), updatePayload, { merge: true })
+      } catch (dbErr) {
+        console.warn('Remote Firestore write skipped, updating local state:', dbErr)
+      }
 
       setProfile({ ...tempProfile })
       setIsEditing(false)

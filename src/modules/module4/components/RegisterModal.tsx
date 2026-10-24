@@ -46,8 +46,17 @@ export default function RegisterModal({ event, onClose, onSuccess }: RegisterMod
 
   const getToken = async () => {
     const user = auth.currentUser;
-    if (!user) throw new Error("Not authenticated");
-    return user.getIdToken();
+    if (user && typeof user.getIdToken === 'function') {
+      try {
+        const token = await user.getIdToken();
+        if (token) return token;
+      } catch (e) {}
+    }
+    if (typeof window !== 'undefined') {
+      const localToken = localStorage.getItem('anx_token') || localStorage.getItem('session');
+      if (localToken) return localToken;
+    }
+    throw new Error("Not authenticated");
   };
 
   const handleFreeRegister = async () => {

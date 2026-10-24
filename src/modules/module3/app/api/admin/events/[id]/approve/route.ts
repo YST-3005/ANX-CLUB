@@ -3,10 +3,10 @@ import { adminDb as db } from '@/lib/firebase/admin';
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
-    const docRef = doc(db, 'events', params.id);
-    const docSnap = await getDoc(docRef);
+    const docRef = db.collection('events').doc(params.id);
+    const docSnap = await docRef.get();
 
-    if (!docSnap.exists()) {
+    if (!docSnap.exists) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
@@ -14,9 +14,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const { action } = body; // 'Approve' or 'Reject'
 
     if (action === 'Approve') {
-      await updateDoc(docRef, { status: 'Approved' });
+      await docRef.update({ status: 'Approved' });
     } else if (action === 'Reject') {
-      await updateDoc(docRef, { status: 'Rejected' });
+      await docRef.update({ status: 'Rejected' });
     } else {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }

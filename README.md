@@ -14,7 +14,21 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Access and Payments
+
+The home page opens with a free-login option. Free users can browse standard content; premium resources, mentors, and events route them to `/membership` for upgrade.
+
+Razorpay membership checkout requires `NEXT_PUBLIC_RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in `.env.local`, plus Firebase Admin credentials for storing the paid membership.
+
+To create or update the admin account, set `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and optionally `ADMIN_NAME`, then run:
+
+```bash
+npm run create:admin
+```
+
+This command creates the Firebase Auth account when needed, assigns the admin claim, and writes the matching admin profile. It does not delete existing Firebase users.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

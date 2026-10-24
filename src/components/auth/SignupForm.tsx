@@ -6,16 +6,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, Mail, Lock, User, BookOpen, ArrowRight, ChevronLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { validatePassword } from '@/lib/utils'
-
-import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { auth, db } from '@/lib/firebase/client'
-import { doc, setDoc } from 'firebase/firestore'
+import { useAuth } from '@/modules/module3/components/AuthContext'
 
 const YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year']
 const BRANCHES = ['Computer Science', 'Electronics', 'Mechanical', 'Civil', 'Chemical', 'Information Technology', 'Other']
 
 export function SignupForm() {
   const router = useRouter()
+  const { signup } = useAuth()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -28,32 +26,25 @@ export function SignupForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (step === 1) { setStep(2); return }
+    if (step === 1) {
+      if (!form.fullName.trim() || !form.email.trim() || !form.password) {
+        toast.error('Please complete all fields.')
+        return
+      }
+      setStep(2)
+      return
+    }
     setLoading(true)
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, form.email.trim(), form.password)
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-        uid: userCredential.user.uid,
-        email: form.email.trim(),
+      await signup(form.email.trim(), form.password, {
         fullName: form.fullName.trim(),
-        role: "Member",
-        membershipType: "Free",
-        joinedDate: new Date().toISOString(),
-        phoneNumber: "",
         collegeName: form.college.trim(),
         yearBranch: `${form.year} - ${form.branch}`,
-        skills: "",
-        interests: "",
-        linkedinUrl: "",
-        githubUrl: "",
-        portfolioUrl: ""
       })
-      const token = await userCredential.user.getIdToken()
-      document.cookie = `session=${token}; path=/; max-age=3600; SameSite=Lax`
       toast.success('Account created! Welcome to A.N.X 🎉')
       router.push('/dashboard')
     } catch (err: any) {
-      console.error(err)
+      console.error('Signup error:', err)
       toast.error(err.message || 'Failed to create account. Please try again.')
     } finally {
       setLoading(false)

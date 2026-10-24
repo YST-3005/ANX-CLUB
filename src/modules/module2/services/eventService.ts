@@ -1,4 +1,4 @@
-import {adminDb} from '@/lib/firebase/admin';
+import {adminDb, logFirestoreFallback} from '@/lib/firebase/admin';
 const db = adminDb;
 import { PlatformEvent } from '@/modules/module2/types/dashboard';
 import { getUpcomingEventsList, getRegisteredEventsByUserId } from '@/modules/module2/data';
@@ -33,8 +33,7 @@ export async function getUpcomingEvents(
       });
       return events;
     } catch (error) {
-      console.error('Error fetching upcoming events from Firestore:', error);
-      return [];
+      logFirestoreFallback('Upcoming events service', error);
     }
   }
 
@@ -57,44 +56,39 @@ export async function getRegisteredEvents(
         .where('userId', '==', userId)
         .get();
 
-      if (snapshot.empty) {
-        return [];
-      }
+      if (!snapshot.empty) {
+        const registrations = snapshot.docs.map(doc => doc.data());
+        const eventIdToRegAt = new Map<string, string>();
+        for (const reg of registrations) {
+          if (reg.eventId) {
+            eventIdToRegAt.set(reg.eventId, reg.registeredAt || '');
+          }
+        }
 
-      const registrations = snapshot.docs.map(doc => doc.data());
-      const eventIdToRegAt = new Map<string, string>();
-      for (const reg of registrations) {
-        if (reg.eventId) {
-          eventIdToRegAt.set(reg.eventId, reg.registeredAt || '');
+        const eventIds = Array.from(eventIdToRegAt.keys()).slice(0, 30);
+        if (eventIds.length > 0) {
+          const eventsSnapshot = await db.collection('events')
+            .where(admin.firestore.FieldPath.documentId(), 'in', eventIds)
+            .get();
+
+          const events: PlatformEvent[] = [];
+          eventsSnapshot.forEach(doc => {
+            const eventData = doc.data();
+            events.push({
+              id: doc.id,
+              title: eventData.title || '',
+              date: eventData.date || '',
+              location: eventData.location || '',
+              description: eventData.description || '',
+              registeredAt: eventIdToRegAt.get(doc.id) || '',
+            });
+          });
+
+          return events;
         }
       }
-
-      const eventIds = Array.from(eventIdToRegAt.keys()).slice(0, 30); // Cap at Firestore 'in' limit of 30
-      if (eventIds.length === 0) {
-        return [];
-      }
-
-      const eventsSnapshot = await db.collection('events')
-        .where(admin.firestore.FieldPath.documentId(), 'in', eventIds)
-        .get();
-
-      const events: PlatformEvent[] = [];
-      eventsSnapshot.forEach(doc => {
-        const eventData = doc.data();
-        events.push({
-          id: doc.id,
-          title: eventData.title || '',
-          date: eventData.date || '',
-          location: eventData.location || '',
-          description: eventData.description || '',
-          registeredAt: eventIdToRegAt.get(doc.id) || '',
-        });
-      });
-
-      return events;
     } catch (error) {
-      console.error('Error fetching registered events from Firestore:', error);
-      return [];
+      logFirestoreFallback('Registered events service', error);
     }
   }
 

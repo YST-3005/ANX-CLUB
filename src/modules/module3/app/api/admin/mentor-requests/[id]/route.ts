@@ -12,21 +12,21 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
-    const docRef = doc(db, 'mentorRequests', params.id);
-    const docSnap = await getDoc(docRef);
+    const docRef = db.collection('mentorRequests').doc(params.id);
+    const docSnap = await docRef.get();
 
-    if (!docSnap.exists()) {
+    if (!docSnap.exists) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 });
     }
 
-    const requestData = docSnap.data();
+    const requestData = docSnap.data() || {};
 
     let meetingLink = requestData.meetingLink;
     if (status === 'Approved' && !meetingLink) {
       meetingLink = `https://meet.jit.si/Mentorship-${params.id}-${Math.random().toString(36).substring(7)}`;
     }
 
-    await updateDoc(docRef, { 
+    await docRef.update({ 
       status,
       ...(meetingLink ? { meetingLink } : {})
     });
@@ -46,11 +46,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
       // Add in-app notification
       await db.collection('notifications').add({
-        userId: requestData.memberId,
+        recipientId: requestData.memberId,
         title: `Mentor Session ${status}`,
-        message: `Your mentoring session with ${requestData.mentorName} has been ${status.toLowerCase()}.`,
-        read: false,
-        link: '/dashboard',
+        body: `Your mentoring session with ${requestData.mentorName} has been ${status.toLowerCase()}.`,
+        isRead: false,
+        actionUrl: '/dashboard',
+        channels: ['in_app'],
         createdAt: new Date().toISOString()
       });
 

@@ -1,12 +1,15 @@
 {
-  "name": "v1-platform-tmp",
-  "version": "0.1.0",
+  "name": "anx",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "create:admin": "tsx scripts/create-admin.ts",
+    "backfill:users": "tsx scripts/backfill-v1-users.ts",
+    "test": "jest"
   },
   "dependencies": {
     "@google/genai": "^2.8.0",
@@ -33,6 +36,7 @@
     "lucide-react": "^1.26.0",
     "next": "14.2.35",
     "next-themes": "^0.4.6",
+    "pdf-lib": "^1.17.1",
     "razorpay": "^2.9.6",
     "react": "^18",
     "react-dom": "^18",
@@ -46,14 +50,21 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.5.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   }
 }

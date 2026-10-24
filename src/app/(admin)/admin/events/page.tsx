@@ -4,28 +4,95 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Calendar, Search, Award, Plus, Trash2, 
-  ExternalLink, Clock, Play, MapPin, Eye 
+  ExternalLink, Clock, Play, MapPin, Eye, Users 
 } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 import { MOCK_EVENTS } from '@/lib/constants'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import toast from 'react-hot-toast'
+import { useAuth } from '@/modules/module3/components/AuthContext'
+import { useEffect } from 'react'
+import { getAuthToken } from '@/lib/auth-helpers'
 
 export default function ManageEventsPage() {
-  const [events, setEvents] = useState(MOCK_EVENTS)
+  const { user } = useAuth()
+  const [events, setEvents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [selectedEventRegs, setSelectedEventRegs] = useState<{ id: string, title: string, list: any[] } | null>(null)
+  const [loadingRegs, setLoadingRegs] = useState(false)
+
+  const fetchEvents = async () => {
+    try {
+      const res = await fetch('/api/v1/events')
+      if (res.ok) {
+        const data = await res.json()
+        setEvents(data.data || data || [])
+      } else {
+        setEvents(MOCK_EVENTS)
+      }
+    } catch (err) {
+      console.error('Failed to load events:', err)
+      setEvents(MOCK_EVENTS)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchEvents()
+  }, [])
 
   const filteredEvents = useMemo(() => {
     return events.filter(e => {
-      return e.title.toLowerCase().includes(search.toLowerCase()) || 
-             e.category.toLowerCase().includes(search.toLowerCase()) ||
+      return (e.title || '').toLowerCase().includes(search.toLowerCase()) || 
+             (e.category || '').toLowerCase().includes(search.toLowerCase()) ||
              (e.speaker && e.speaker.toLowerCase().includes(search.toLowerCase()))
     })
   }, [search, events])
 
-  const handleDelete = (id: string, title: string) => {
-    if (confirm(`Are you sure you want to delete this event: "${title}"? This cannot be undone.`)) {
-      setEvents(prev => prev.filter(e => e.id !== id))
-      toast.success('Event deleted successfully!')
+  const handleDelete = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete this event: "${title}"? This cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const token = await getAuthToken(user)
+      const res = await fetch(`/api/v1/events/${id}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (res.ok) {
+        setEvents(prev => prev.filter(e => e.id !== id))
+        toast.success('Event deleted successfully from database! 🗑️')
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.message || 'Failed to delete event.')
+      }
+    } catch (err: any) {
+      console.error(err)
+      toast.error('Network error deleting event.')
+    }
+  }
+
+  const handleViewRegistrations = async (evt: any) => {
+    setLoadingRegs(true)
+    setSelectedEventRegs({ id: evt.id, title: evt.title, list: [] })
+    try {
+      const token = await getAuthToken(user)
+      const res = await fetch(`/api/v1/admin/events/${evt.id}/registrations`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setSelectedEventRegs({ id: evt.id, title: evt.title, list: Array.isArray(data) ? data : (data.data || []) })
+      } else {
+        toast.error('Could not fetch registration list.')
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Error fetching registrations.')
+    } finally {
+      setLoadingRegs(false)
     }
   }
 
@@ -147,6 +214,13 @@ export default function ManageEventsPage() {
                     {/* Actions */}
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleViewRegistrations(evt)}
+                          className="p-2 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-all shrink-0"
+                          title="View Registrations"
+                        >
+                          <Users className="w-4 h-4" />
+                        </button>
                         <Link
                           href={`/events/${evt.id}`}
                           className="p-2 rounded-lg border border-border/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-all shrink-0"
@@ -170,6 +244,64 @@ export default function ManageEventsPage() {
           </table>
         </div>
       </section>
+
+      {/* Registrations Modal */}
+      <AnimatePresence>
+        {selectedEventRegs && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedEventRegs(null)}
+              className="fixed inset-0 bg-black"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-card border border-border rounded-3xl w-full max-w-2xl shadow-2xl relative overflow-hidden z-10 p-6 space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                <div>
+                  <h3 className="font-display text-base font-bold text-foreground">
+                    Registrations: {selectedEventRegs.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedEventRegs.list.length} attendees enrolled
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedEventRegs(null)}
+                  className="px-3 py-1 bg-muted text-xs font-semibold rounded-lg hover:bg-muted/80"
+                >
+                  Close
+                </button>
+              </div>
+
+              {loadingRegs ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">Loading registrations...</div>
+              ) : selectedEventRegs.list.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">No registrations recorded yet.</div>
+              ) : (
+                <div className="max-h-80 overflow-y-auto divide-y divide-border/30 text-xs">
+                  {selectedEventRegs.list.map((r: any, idx: number) => (
+                    <div key={r.id || idx} className="py-2.5 flex items-center justify-between">
+                      <div>
+                        <p className="font-bold text-foreground">{r.name || r.userName || 'Attendee'}</p>
+                        <p className="text-[10px] text-muted-foreground">{r.email || 'N/A'} • {r.phone || 'N/A'}</p>
+                      </div>
+                      <span className="text-[10px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                        {r.paymentStatus === 'paid' ? `Paid (₹${r.amount || 0})` : 'Confirmed'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       phone,
     } = await request.json();
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !eventId) {
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
     }
 
@@ -33,6 +33,71 @@ export async function POST(request: NextRequest) {
 
     if (!isValid) {
       return NextResponse.json({ success: false, message: "Signature verification failed" }, { status: 400 });
+    }
+
+    const paymentDoc = await adminDb.collection("payments").doc(razorpay_order_id).get();
+    if (!paymentDoc.exists || paymentDoc.data()?.userId !== userId) {
+      return NextResponse.json({ success: false, message: "Payment order not found." }, { status: 404 });
+    }
+    const paymentData = paymentDoc.data()!;
+
+    if (paymentData.paymentType === "membership") {
+      const startDate = new Date();
+      const expiry = new Date();
+      expiry.setMonth(expiry.getMonth() + (paymentData.billingPeriod === "monthly" ? 1 : 12));
+
+      await adminDb.collection("users").doc(userId).set({
+        uid: userId,
+        membershipType: "premium",
+        membershipExpiry: expiry.toISOString(),
+        role: "Premium Member",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+      await paymentDoc.ref.update({
+        status: "paid",
+        paymentId: razorpay_payment_id,
+        verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Write to memberships collection per PRD Section 11
+      const membershipRef = adminDb.collection("memberships").doc();
+      await membershipRef.set({
+        id: membershipRef.id,
+        userId,
+        memberId: userId,
+        plan: paymentData.billingPeriod === "monthly" ? "monthly_149" : "annual_999",
+        status: "active",
+        startDate: startDate.toISOString(),
+        endDate: expiry.toISOString(),
+        razorpayPaymentId: razorpay_payment_id,
+        orderId: razorpay_order_id,
+        amount: paymentData.amount,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Send emails
+      const targetEmail = email || paymentData.userEmail || "";
+      if (targetEmail) {
+        try {
+          const { sendEmail } = await import("@/lib/resend");
+          const { membershipActivationEmail, paymentConfirmationEmail } = await import("@/lib/email-templates");
+          await sendEmail(
+            targetEmail,
+            "A.N.X Premium Membership Activated! 🚀",
+            membershipActivationEmail(name || "Member", expiry.toISOString().split('T')[0], paymentData.billingPeriod === "monthly" ? "Monthly Elite" : "Annual Elite")
+          );
+          await sendEmail(
+            targetEmail,
+            "Payment Receipt - A.N.X Platform",
+            paymentConfirmationEmail(paymentData.amount, razorpay_payment_id, "Premium Membership Subscription")
+          );
+        } catch (emailErr) {
+          console.warn("Membership emails skipped:", emailErr);
+        }
+      }
+
+      return NextResponse.json({ success: true, message: "Membership upgraded successfully." });
     }
 
     // Execute atomic transaction for seat booking and registration creation
@@ -112,8 +177,27 @@ export async function POST(request: NextRequest) {
         registeredCount: admin.firestore.FieldValue.increment(1),
       });
 
-      return { registrationId: regRef.id, idempotent: false };
+      return { registrationId: regRef.id, idempotent: false, eventTitle: eventData.title, email: registrationData.email, name: registrationData.name, amount: paymentData.amount };
     });
+
+    if (result && !result.idempotent && result.email) {
+      try {
+        const { sendEmail } = await import("@/lib/resend");
+        const { eventRegistrationEmail, paymentConfirmationEmail } = await import("@/lib/email-templates");
+        await sendEmail(
+          result.email,
+          `Event Registration Confirmed: ${result.eventTitle}`,
+          eventRegistrationEmail(result.eventTitle, result.name)
+        );
+        await sendEmail(
+          result.email,
+          "Event Payment Receipt - A.N.X Platform",
+          paymentConfirmationEmail(result.amount, razorpay_payment_id, `Event: ${result.eventTitle}`)
+        );
+      } catch (emailErr) {
+        console.warn("Event confirmation emails skipped:", emailErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,

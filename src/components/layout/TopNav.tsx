@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes';
 import { useAuth } from '@/providers/AuthProvider';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
+import NotificationBell from '@/components/NotificationBell';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
@@ -23,7 +24,7 @@ function getBreadcrumb(pathname: string): string {
 export function TopNav() {
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -62,7 +63,7 @@ export function TopNav() {
         {user && (
           <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-yellow-500/20 bg-yellow-500/10 shadow-[0_0_10px_rgba(234,179,8,0.15)]">
             <Zap className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-            <span className="text-sm font-bold text-yellow-500 tracking-wide">1280 XP</span>
+            <span className="text-sm font-bold text-yellow-500 tracking-wide">{profile?.xpTotal ?? 0} XP</span>
           </div>
         )}
 
@@ -71,11 +72,8 @@ export function TopNav() {
           <Bot className="h-5 w-5" />
         </Button>
 
-        {/* Notifications */}
-        <Button onClick={() => toast.success('All caught up! No new notifications.')} variant="ghost" size="icon" className="relative text-pink-400 hover:text-pink-300 hover:bg-pink-950/30" aria-label="Notifications">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-pink-500 shadow-[0_0_5px_rgba(236,72,153,0.8)]" />
-        </Button>
+        {/* Real-time Notifications */}
+        <NotificationBell />
 
         {/* User Menu */}
         {user && (
@@ -85,8 +83,8 @@ export function TopNav() {
               className="flex items-center gap-3 ml-2 pl-2 border-l border-border hover:bg-surface-hover/50 p-1.5 rounded-xl transition-colors text-left"
             >
               <div className="flex flex-col hidden sm:block">
-                <span className="text-sm font-bold text-foreground block leading-tight">{user.displayName || 'User'}</span>
-                <span className="text-[10px] font-bold text-primary tracking-widest uppercase">Premium Member</span>
+                <span className="text-sm font-bold text-foreground block leading-tight">{profile?.fullName || user.displayName || 'User'}</span>
+                <span className="text-[10px] font-bold text-primary tracking-widest uppercase">{profile?.membershipType || 'Member'}</span>
               </div>
               <Avatar
                 name={user.displayName || user.email || 'User'}

@@ -43,7 +43,10 @@ export default function MembershipPage() {
     setLoadingPayment(true)
     
     try {
-      const order = await createRazorpayOrder(price)
+      const order = await createRazorpayOrder(price, 'INR', {
+        paymentType: 'membership',
+        billingPeriod,
+      })
 
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, 
@@ -54,7 +57,7 @@ export default function MembershipPage() {
         order_id: order.id,
         handler: async function (response: any) {
           try {
-            await verifyRazorpayPayment(response, user.uid, profile?.email || user.email || '', price, "Premium membership")
+            await verifyRazorpayPayment(response, user.uid, profile?.email || user.email || '', price, "membership")
             toast.success("Payment successful! You are now a Premium Member. 🚀")
             router.push("/dashboard")
           } catch (err: any) {

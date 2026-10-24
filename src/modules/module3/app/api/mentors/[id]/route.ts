@@ -7,7 +7,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   try {
     const docRef = await db.collection('mentors').doc(params.id).get();
     
-    if (!docRef.exists()) {
+    if (!docRef.exists) {
       return NextResponse.json({ error: 'Mentor not found' }, { status: 404 });
     }
 

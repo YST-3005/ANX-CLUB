@@ -1,23 +1,41 @@
 'use client'
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Bell, AlertCircle, Calendar, Users, 
   CheckCircle2, Flame, RefreshCw, Info 
 } from 'lucide-react'
-import { MOCK_ANNOUNCEMENTS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 
 const categories = ['all', 'opportunity', 'news', 'maintenance', 'celebration']
 
 export default function AnnouncementsPage() {
+  const [announcements, setAnnouncements] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [filterCategory, setFilterCategory] = useState('all')
 
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const res = await fetch('/api/v1/announcements')
+        if (res.ok) {
+          const data = await res.json()
+          setAnnouncements(data)
+        }
+      } catch (err) {
+        console.error('Failed to load announcements:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAnnouncements()
+  }, [])
+
   const filteredAnnouncements = useMemo(() => {
-    return MOCK_ANNOUNCEMENTS.filter(ann => {
+    return announcements.filter(ann => {
       return filterCategory === 'all' || ann.category.toLowerCase() === filterCategory.toLowerCase()
     })
-  }, [filterCategory])
+  }, [filterCategory, announcements])
 
   return (
     <div className="space-y-8 select-none">

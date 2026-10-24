@@ -19,13 +19,15 @@ import {
   MessageSquare
 } from 'lucide-react'
 import { MOCK_USER, MOCK_EVENTS, MOCK_ANNOUNCEMENTS, MOCK_RESOURCES, MOCK_MENTORS } from '@/lib/constants'
-import { formatDate } from '@/lib/utils'
+import { formatDate, cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/modules/module3/components/AuthContext'
+import { getAuthToken } from '@/lib/auth-helpers'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
+import GamificationWidget from '@/components/dashboard/GamificationWidget'
 import {
   AreaChart,
   Area,
@@ -35,12 +37,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -66,14 +62,19 @@ export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<any>(null)
   const [registeredList, setRegisteredList] = useState<string[]>([])
   const [events, setEvents] = useState<any[]>([])
+  const [chartReady, setChartReady] = useState(false)
+
+  useEffect(() => {
+    setChartReady(true)
+  }, [])
 
   useEffect(() => {
     const fetchBff = async () => {
       if (!user) return
       try {
-        const token = await user.getIdToken()
+        const token = await getAuthToken(user)
         const res = await fetch("/api/v1/module2/dashboard", {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
         })
         if (res.ok) {
           const data = await res.json()
@@ -119,17 +120,34 @@ export default function DashboardPage() {
         <div className="relative z-10 p-8 flex flex-col h-full justify-between gap-10">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
-                Welcome back, {profile?.fullName ? profile.fullName.split(' ')[0] : (user?.displayName ? user.displayName.split(' ')[0] : 'Member')}! <span className="text-2xl">👋</span>
+              <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight flex items-center gap-3">
+                {user ? (
+                  <>Welcome back, {profile?.fullName ? profile.fullName.split(' ')[0] : (user?.displayName ? user.displayName.split(' ')[0] : 'Member')}! <span className="text-2xl">👋</span></>
+                ) : (
+                  <>Welcome to A.N.X Ecosystem <span className="text-2xl">🚀</span></>
+                )}
               </h1>
-              <p className="text-lg text-gray-300 mt-2 max-w-lg">
-                Continue your journey of learning, building and growing with A.N.X
+              <p className="text-sm md:text-base text-gray-300 mt-2 max-w-lg">
+                {user 
+                  ? 'Continue your journey of learning, building and growing with A.N.X'
+                  : 'Explore events, book sessions with expert mentors, and accelerate your tech career.'}
               </p>
-              <div className="mt-6 p-4 rounded-xl border border-primary/30 bg-black/40 backdrop-blur-md max-w-sm inline-block">
-                <p className="text-sm text-gray-300 italic">
-                  "The future depends on what you do today."
-                </p>
-              </div>
+              {!user ? (
+                <div className="mt-5 flex gap-3">
+                  <Link href="/login" className="px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white rounded-xl text-xs font-semibold shadow-[0_0_15px_rgba(217,70,239,0.4)]">
+                    Sign In
+                  </Link>
+                  <Link href="/signup" className="px-5 py-2.5 bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-xl text-xs font-semibold">
+                    Join Free
+                  </Link>
+                </div>
+              ) : (
+                <div className="mt-6 p-4 rounded-xl border border-primary/30 bg-black/40 backdrop-blur-md max-w-sm inline-block">
+                  <p className="text-sm text-gray-300 italic">
+                    "The future depends on what you do today."
+                  </p>
+                </div>
+              )}
             </div>
             
             {/* AI Assistant Widget */}
@@ -244,13 +262,23 @@ export default function DashboardPage() {
 
         {/* COLUMN 2 */}
         <div className="space-y-6">
+          {/* Gamification Widget */}
+          <GamificationWidget 
+            xpTotal={profile?.xpTotal || dashboardData?.xpTotal || 1280} 
+            leadershipStage={profile?.leadershipStage || 'Core Team'} 
+            recentBadges={profile?.recentBadges || [
+              { id: '1', name: 'Early Bird', iconUrl: 'https://cdn-icons-png.flaticon.com/512/5978/5978182.png' },
+              { id: '2', name: 'Product Builder', iconUrl: 'https://cdn-icons-png.flaticon.com/512/473/473402.png' }
+            ]} 
+          />
+
           {/* Learning Progress */}
           <Card padding="none" className="glass border-white/10 overflow-hidden h-fit shadow-xl hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
             <div className="flex items-center justify-between p-5 border-b border-white/10">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Zap className="h-4 w-4 text-cyan-400" /> Your Learning Progress
               </h2>
-              <button onClick={() => toast.success('Roadmaps coming soon!')} className="text-xs font-medium text-cyan-400 hover:text-cyan-300">View Roadmap →</button>
+              <Link href="/resources" className="text-xs font-medium text-cyan-400 hover:text-cyan-300">View Roadmaps →</Link>
             </div>
             <div className="p-6">
               <div className="flex items-center gap-6">
@@ -289,21 +317,23 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 <div className="h-[120px] w-full mt-2 relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={activityData} margin={{ top: 10, right: 0, bottom: 0, left: -20 }}>
-                      <defs>
-                        <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#d946ef" stopOpacity={0.5} />
-                          <stop offset="95%" stopColor="#d946ef" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                      <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ background: '#000', border: '1px solid #333' }} />
-                      <Area type="monotone" dataKey="events" stroke="#d946ef" strokeWidth={3} fill="url(#purpleGrad)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  {chartReady && (
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={120}>
+                      <AreaChart data={activityData} margin={{ top: 10, right: 0, bottom: 0, left: -20 }}>
+                        <defs>
+                          <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#d946ef" stopOpacity={0.5} />
+                            <stop offset="95%" stopColor="#d946ef" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                        <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ background: '#000', border: '1px solid #333' }} />
+                        <Area type="monotone" dataKey="events" stroke="#d946ef" strokeWidth={3} fill="url(#purpleGrad)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </div>
             </div>
@@ -384,9 +414,9 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-400 mt-2 max-w-[70%] leading-relaxed">
                 Based on your skills and interests, our AI recommends this path for your growth.
               </p>
-              <Button onClick={() => toast.success('Roadmaps coming soon!')} className="mt-4 bg-gradient-to-r from-fuchsia-600 to-purple-600 border-none text-xs h-8">
-                View Roadmap →
-              </Button>
+              <Link href="/resources" className="inline-flex items-center justify-center mt-4 px-4 py-2 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white rounded-xl text-xs font-semibold shadow-[0_0_15px_rgba(217,70,239,0.4)]">
+                View Roadmaps →
+              </Link>
             </div>
           </Card>
 

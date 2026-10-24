@@ -15,9 +15,6 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
   console.warn("WARNING: Redis/Upstash is missing but required in production for rate limiting.");
 }
 
-// In-memory fallback ONLY for development
-const devRateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
 async function checkRateLimit(key: string, limit = 3, windowSecs = 60): Promise<boolean> {
   if (redis) {
     const current = await redis.incr(key);
@@ -26,16 +23,8 @@ async function checkRateLimit(key: string, limit = 3, windowSecs = 60): Promise<
     }
     return current <= limit;
   } else {
-    // Development fallback
-    const now = Date.now();
-    const record = devRateLimitStore.get(key);
-    if (!record || now > record.resetTime) {
-      devRateLimitStore.set(key, { count: 1, resetTime: now + windowSecs * 1000 });
-      return true;
-    }
-    if (record.count >= limit) return false;
-    record.count += 1;
-    return true;
+    console.error("Redis is not configured. Rate limiting is mandatory for OTP.");
+    throw new Error("Rate Limiting Service Unavailable");
   }
 }
 
@@ -48,7 +37,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: { code: "BAD_REQUEST", message: "Phone number is required" } }, { status: 400 });
     }
 
-    let formattedPhone = phoneNumber.replace(/^\+91/, '');
+    const formattedPhone = phoneNumber.replace(/^\+91/, '');
     const rateLimitKey = `rate-limit:otp:${ip}:${formattedPhone}`;
 
     const isAllowed = await checkRateLimit(rateLimitKey);
@@ -76,8 +65,6 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: 'OTP sent successfully',
-      // We only return OTP in development for testing purposes
-      otp: process.env.NODE_ENV === 'development' ? otp : undefined,
     });
   } catch (error: any) {
     console.error('Error sending OTP:', error);

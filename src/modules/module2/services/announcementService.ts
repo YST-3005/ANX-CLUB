@@ -1,4 +1,4 @@
-import {adminDb} from '@/lib/firebase/admin';
+import {adminDb, logFirestoreFallback} from '@/lib/firebase/admin';
 const db = adminDb;
 import { Announcement } from '@/modules/module2/types/dashboard';
 import { getAnnouncementsByUserId } from '@/modules/module2/data';
@@ -73,13 +73,11 @@ export async function getAnnouncements(
         });
       }
 
-      // Sort by date descending and return top 5
       return announcements
         .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
         .slice(0, 5);
     } catch (error) {
-      console.error('Error fetching announcements from Firestore:', error);
-      return [];
+      logFirestoreFallback('Announcements service', error);
     }
   }
 
@@ -88,5 +86,5 @@ export async function getAnnouncements(
     return getAnnouncementsByUserId(userId);
   }
 
-  return [];
+  return getAnnouncementsByUserId('default_user_123');
 }

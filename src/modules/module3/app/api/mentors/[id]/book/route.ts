@@ -34,18 +34,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
     // Create a real-time notification for the mentor if their account exists
     try {
       const mentorDoc = await db.collection('mentors').doc(params.id).get();
-      if (mentorDoc.exists() && mentorDoc.data().ownerEmail) {
-        const userQ = query(collection(db, 'users'), where('email', '==', mentorDoc.data().ownerEmail));
-        const userSnap = await userQ.get();
+      if (mentorDoc.exists && mentorDoc.data()?.ownerEmail) {
+        const userSnap = await db.collection('users').where('email', '==', mentorDoc.data()?.ownerEmail).get();
         
         if (!userSnap.empty) {
           const mentorUserId = userSnap.docs[0].id;
           await db.collection('notifications').add({
-            userId: mentorUserId,
+            recipientId: mentorUserId,
             title: 'New Session Request',
-            message: `${userName} requested a session on ${date}.`,
-            link: '/mentor-dashboard',
-            read: false,
+            body: `${userName} requested a session on ${date}.`,
+            actionUrl: '/mentor-dashboard',
+            channels: ['in_app'],
+            isRead: false,
             createdAt: new Date().toISOString()
           });
         }

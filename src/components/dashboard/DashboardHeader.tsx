@@ -16,7 +16,7 @@ interface HeaderProps {
 export function DashboardHeader({ onMenuClick }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
-  const { user, profile } = useAuth()
+  const { user, profile, logout } = useAuth()
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-6 border-b border-white/5 bg-[#0b0c1b]/80 backdrop-blur-md select-none shadow-[0_4px_30px_rgba(0,0,0,0.3)]">
@@ -42,13 +42,14 @@ export function DashboardHeader({ onMenuClick }: HeaderProps) {
       </div>
 
       {/* Utilities */}
-      <div className="flex items-center gap-4">
-        
-        {/* XP Badge */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400">
-          <Zap className="w-4 h-4 fill-orange-400 drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
-          <span className="text-xs font-bold">{(profile as any)?.xp || 1280} XP</span>
-        </div>
+      <div className="flex items-center gap-3 sm:gap-4">
+        {/* XP Badge (Only for signed in user) */}
+        {user && (
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400">
+            <Zap className="w-4 h-4 fill-orange-400 drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
+            <span className="text-xs font-bold">{(profile as any)?.xp || 1280} XP</span>
+          </div>
+        )}
 
         {/* Bot Icon */}
         <button onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))} className="p-2 rounded-full border border-white/10 bg-white/5 hover:bg-purple-500/20 hover:border-purple-500/30 text-purple-400 transition-all relative overflow-hidden group">
@@ -111,80 +112,99 @@ export function DashboardHeader({ onMenuClick }: HeaderProps) {
           </AnimatePresence>
         </div>
 
-        {/* Profile Dropdown */}
-        <div className="relative ml-2">
-          <button
-            onClick={() => {
-              setShowProfileMenu(!showProfileMenu)
-              setShowNotifications(false)
-            }}
-            className="flex items-center gap-3 text-left group"
-          >
-            <div className="hidden sm:flex flex-col items-end">
-              <p className="text-sm font-semibold text-white leading-tight group-hover:text-purple-400 transition-colors">{profile?.fullName || user?.displayName || 'A.N.X Member'}</p>
-              <span className="text-[10px] text-purple-400 font-medium truncate">{profile?.role || 'Premium Member'}</span>
-            </div>
-            <img
-              src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.fullName || user?.displayName || 'User')}&background=8b5cf6&color=fff`}
-              alt={profile?.fullName || user?.displayName || 'Avatar'}
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)]"
-            />
-          </button>
+        {/* Profile Dropdown or Guest Login Buttons */}
+        {user ? (
+          <div className="relative ml-1 sm:ml-2">
+            <button
+              onClick={() => {
+                setShowProfileMenu(!showProfileMenu)
+                setShowNotifications(false)
+              }}
+              className="flex items-center gap-3 text-left group"
+            >
+              <div className="hidden sm:flex flex-col items-end">
+                <p className="text-sm font-semibold text-white leading-tight group-hover:text-purple-400 transition-colors">{profile?.fullName || user?.displayName || 'Member'}</p>
+                <span className="text-[10px] text-purple-400 font-medium truncate">{profile?.role || 'Member'}</span>
+              </div>
+              <img
+                src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.fullName || user?.displayName || user?.email || 'User')}&background=8b5cf6&color=fff`}
+                alt={profile?.fullName || user?.displayName || 'Avatar'}
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)]"
+              />
+            </button>
 
-          <AnimatePresence>
-            {showProfileMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowProfileMenu(false)} />
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-3 w-56 glass-card rounded-2xl z-20 p-1.5 overflow-hidden"
-                >
-                  <div className="px-3 py-2 border-b border-white/10 mb-1">
-                    <p className="text-xs text-muted-foreground font-medium">Signed in as</p>
-                    <p className="text-sm font-semibold text-white truncate mt-0.5">{profile?.fullName || user?.displayName || 'A.N.X Member'}</p>
-                    {(profile?.role === 'Premium Member' || (profile as any)?.membershipTier === 'premium' || MOCK_USER.membershipTier === 'premium') && (
-                      <span className="inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-amber-500 to-orange-500 text-white px-2 py-0.5 rounded-md font-semibold tracking-wider uppercase mt-1.5 shadow-[0_0_10px_rgba(245,158,11,0.3)]">
-                        <Award className="w-2.5 h-2.5" /> Premium Member
-                      </span>
-                    )}
-                  </div>
-
-                  <Link
-                    href="/profile"
-                    onClick={() => setShowProfileMenu(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-white hover:bg-white/10 rounded-xl transition-all"
+            <AnimatePresence>
+              {showProfileMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowProfileMenu(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 mt-3 w-56 glass-card rounded-2xl z-20 p-1.5 overflow-hidden"
                   >
-                    <User className="w-4 h-4" />
-                    <span>My Profile</span>
-                  </Link>
+                    <div className="px-3 py-2 border-b border-white/10 mb-1">
+                      <p className="text-xs text-muted-foreground font-medium">Signed in as</p>
+                      <p className="text-sm font-semibold text-white truncate mt-0.5">{profile?.fullName || user?.displayName || user?.email}</p>
+                      {profile?.role === 'Premium Member' && (
+                        <span className="inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-amber-500 to-orange-500 text-white px-2 py-0.5 rounded-md font-semibold tracking-wider uppercase mt-1.5 shadow-[0_0_10px_rgba(245,158,11,0.3)]">
+                          <Award className="w-2.5 h-2.5" /> Premium Member
+                        </span>
+                      )}
+                    </div>
 
-                  <Link
-                    href="/profile"
-                    onClick={() => setShowProfileMenu(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-white hover:bg-white/10 rounded-xl transition-all"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span>Account Settings</span>
-                  </Link>
+                    <Link
+                      href="/profile"
+                      onClick={() => setShowProfileMenu(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>My Profile</span>
+                    </Link>
 
-                  <div className="border-t border-white/10 my-1" />
+                    <Link
+                      href="/membership"
+                      onClick={() => setShowProfileMenu(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                    >
+                      <Award className="w-4 h-4" />
+                      <span>Membership Status</span>
+                    </Link>
 
-                  <Link
-                    href="/"
-                    onClick={() => setShowProfileMenu(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl transition-all"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Sign Out</span>
-                  </Link>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
+                    <div className="border-t border-white/10 my-1" />
+
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false)
+                        logout()
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl transition-all text-left"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Sign Out</span>
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 ml-1 sm:ml-2">
+            <Link
+              href="/login"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-white/80 hover:text-white hover:bg-white/10 border border-white/10 transition-all"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/signup"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white shadow-[0_0_15px_rgba(217,70,239,0.3)] transition-all"
+            >
+              Join Club
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   )

@@ -6,9 +6,12 @@ import {
   Video, Calendar, Clock, Users, Award 
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useAuth } from '@/modules/module3/components/AuthContext'
+import { getAuthToken } from '@/lib/auth-helpers'
 
 export default function CreateEventPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     title: '',
@@ -33,11 +36,49 @@ export default function CreateEventPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!form.title.trim()) {
+      toast.error('Please enter an event title.')
+      return
+    }
+    if (!form.description.trim()) {
+      toast.error('Please enter an event description.')
+      return
+    }
+    if (!form.date) {
+      toast.error('Please select an event date.')
+      return
+    }
+
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1200))
-    setLoading(false)
-    toast.success('New Ecosystem Event created and published successfully! 🚀')
-    router.push('/admin/events')
+    try {
+      let token = await getAuthToken(user)
+      if (!token && typeof window !== 'undefined') {
+        token = localStorage.getItem('anx_token') || localStorage.getItem('session') || 'mock_admin_token'
+      }
+
+      const response = await fetch('/api/v1/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || 'mock_admin_token'}`
+        },
+        body: JSON.stringify(form)
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || data.success === false) {
+        throw new Error(data.message || data.error || 'Failed to create event')
+      }
+
+      toast.success('New Ecosystem Event created and published successfully! 🚀')
+      router.push('/admin/events')
+    } catch (err: any) {
+      console.error('Event creation submit error:', err)
+      toast.error(err.message || 'Error creating event. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
