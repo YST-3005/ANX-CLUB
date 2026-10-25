@@ -10,15 +10,11 @@ const ADMIN_EMAILS = ['admin@algorithmaliens.com', 'admin@algoritmaliens.com', '
 export async function POST(request: NextRequest) {
   try {
     const verifiedUser = await verifyAuthToken(request);
-    const cookieHeader = request.headers.get('cookie') || '';
-    const hasAdminCookie = cookieHeader.includes('anx_admin=true');
-
     const email = (verifiedUser?.email || '').toLowerCase().trim();
-    const isAdmin = hasAdminCookie ||
-                    verifiedUser?.role?.toLowerCase() === 'admin' ||
+    const isAdmin = verifiedUser?.role?.toLowerCase() === 'admin' ||
                     ADMIN_EMAILS.includes(email) ||
-                    email.startsWith('admin@') ||
-                    (verifiedUser?.uid || '').toLowerCase().includes('admin');
+                    verifiedUser?.uid === 'admin_user' ||
+                    verifiedUser?.uid === 'admin_anx_core';
 
     if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden: Administrator privileges required.' }, { status: 403 });

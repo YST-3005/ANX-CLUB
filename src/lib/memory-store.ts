@@ -103,6 +103,7 @@ export interface MemoryRegistration {
 }
 
 // Global memory cache attached to globalThis to survive Next.js dev reloads
+/* eslint-disable no-var */
 declare global {
   var __ANX_MEMORY_STORE__: {
     events: MemoryEvent[];

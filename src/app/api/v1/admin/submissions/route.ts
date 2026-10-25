@@ -14,27 +14,14 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const verifiedUser = await verifyAuthToken(request);
-    const cookieHeader = request.headers.get('cookie') || '';
-    const hasAdminCookie = cookieHeader.includes('anx_admin=true') || cookieHeader.includes('admin');
-
-    const email = (verifiedUser?.email || '').toLowerCase();
-    let isAdmin = verifiedUser?.role?.toLowerCase() === 'admin' ||
-                  email === 'admin@algorithmaliens.com' ||
-                  email === 'admin@anx.club' ||
-                  email.startsWith('admin@') ||
-                  (verifiedUser?.uid || '').toLowerCase().includes('admin');
-
-    if (!isAdmin) {
-      const authUid = await authenticate(request);
-      if (authUid) {
-        const uidLower = authUid.toLowerCase();
-        if (uidLower.includes('admin') || uidLower === 'admin_anx_core') {
-          isAdmin = true;
-        }
-      }
-    }
-
-    if (!isAdmin && verifiedUser?.role !== 'Admin') {
+    const email = (verifiedUser?.email || "").toLowerCase().trim();
+    const isAdmin = verifiedUser?.role?.toLowerCase() === "admin" ||
+                    email === "admin@algorithmaliens.com" ||
+                    email === "admin@anx.club" ||
+                    email === "admin@algoritmaliens.com" ||
+                    verifiedUser?.uid === "admin_user" ||
+                    verifiedUser?.uid === "admin_anx_core";
+        if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden: Administrator privileges required' }, { status: 403 });
     }
 
@@ -148,27 +135,14 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const verifiedUser = await verifyAuthToken(request);
-    const cookieHeader = request.headers.get('cookie') || '';
-    const hasAdminCookie = cookieHeader.includes('anx_admin=true') || cookieHeader.includes('admin');
-
-    const email = (verifiedUser?.email || '').toLowerCase();
-    let isAdmin = verifiedUser?.role?.toLowerCase() === 'admin' ||
-                  email === 'admin@algorithmaliens.com' ||
-                  email === 'admin@anx.club' ||
-                  email.startsWith('admin@') ||
-                  (verifiedUser?.uid || '').toLowerCase().includes('admin');
-
-    if (!isAdmin) {
-      const authUid = await authenticate(request);
-      if (authUid) {
-        const uidLower = authUid.toLowerCase();
-        if (uidLower.includes('admin') || uidLower === 'admin_anx_core') {
-          isAdmin = true;
-        }
-      }
-    }
-
-    if (!isAdmin && verifiedUser?.role !== 'Admin') {
+    const email = (verifiedUser?.email || "").toLowerCase().trim();
+    const isAdmin = verifiedUser?.role?.toLowerCase() === "admin" ||
+                    email === "admin@algorithmaliens.com" ||
+                    email === "admin@anx.club" ||
+                    email === "admin@algoritmaliens.com" ||
+                    verifiedUser?.uid === "admin_user" ||
+                    verifiedUser?.uid === "admin_anx_core";
+        if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden: Administrator privileges required' }, { status: 403 });
     }
 

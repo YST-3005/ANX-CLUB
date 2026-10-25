@@ -2,30 +2,22 @@ import { NextResponse } from 'next/server';
 import { sendOTP } from '@/lib/fast2sms';
 import { adminDb } from '@/lib/firebase/admin';
 import crypto from 'crypto';
-import { Redis } from '@upstash/redis';
 
-// Initialize Redis client. Fails in production if URL/Token are missing.
-let redis: Redis | null = null;
-if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-  redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  });
-} else if (process.env.NODE_ENV === 'production') {
-  console.warn("WARNING: Redis/Upstash is missing but required in production for rate limiting.");
-}
+// In-memory rate limiting store for OTP dispatches
+const otpRateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
-async function checkRateLimit(key: string, limit = 3, windowSecs = 60): Promise<boolean> {
-  if (redis) {
-    const current = await redis.incr(key);
-    if (current === 1) {
-      await redis.expire(key, windowSecs);
-    }
-    return current <= limit;
-  } else {
-    console.error("Redis is not configured. Rate limiting is mandatory for OTP.");
-    throw new Error("Rate Limiting Service Unavailable");
+function checkRateLimit(key: string, limit = 3, windowSecs = 60): boolean {
+  const now = Date.now();
+  const record = otpRateLimitStore.get(key);
+  if (!record || now > record.resetTime) {
+    otpRateLimitStore.set(key, { count: 1, resetTime: now + windowSecs * 1000 });
+    return true;
   }
+  if (record.count >= limit) {
+    return false;
+  }
+  record.count += 1;
+  return true;
 }
 
 export async function POST(request: Request) {
@@ -40,7 +32,7 @@ export async function POST(request: Request) {
     const formattedPhone = phoneNumber.replace(/^\+91/, '');
     const rateLimitKey = `rate-limit:otp:${ip}:${formattedPhone}`;
 
-    const isAllowed = await checkRateLimit(rateLimitKey);
+    const isAllowed = checkRateLimit(rateLimitKey);
     if (!isAllowed) {
       return NextResponse.json(
         { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Too many OTP requests. Please wait 1 minute before retrying." } },

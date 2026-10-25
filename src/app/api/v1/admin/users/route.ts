@@ -7,16 +7,16 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const verifiedUser = await verifyAuthToken(request);
-    const cookieHeader = request.headers.get('cookie') || '';
-    const hasAdminCookie = cookieHeader.includes('anx_admin=true') || cookieHeader.includes('admin');
     const userEmail = (verifiedUser?.email || '').toLowerCase().trim();
-    const isAdmin = hasAdminCookie ||
-                    verifiedUser?.role === 'Admin' || 
+    const isAdmin = verifiedUser?.role === 'Admin' || 
                     userEmail === 'admin@algorithmaliens.com' || 
                     userEmail === 'admin@anx.club' ||
+                    userEmail === 'admin@algoritmaliens.com' ||
                     userEmail === 'sairamraopolsani@gmail.com' ||
-                    userEmail.startsWith('admin');
-    if (!verifiedUser && !hasAdminCookie) {
+                    verifiedUser?.uid === 'admin_user' ||
+                    verifiedUser?.uid === 'admin_anx_core';
+
+    if (!verifiedUser || !isAdmin) {
       return NextResponse.json({ error: 'Unauthorized: Admins only' }, { status: 403 });
     }
 

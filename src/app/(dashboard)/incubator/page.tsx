@@ -26,6 +26,8 @@ interface Idea {
   pdfUrl?: string;
   submitterId?: string;
   createdAt?: any;
+  mentorFeedback?: any;
+  adminFeedback?: any;
 }
 
 export default function IncubatorPage() {

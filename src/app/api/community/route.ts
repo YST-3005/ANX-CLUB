@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { adminDb as db } from '@/lib/firebase/admin';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const q = db.collection('communityTopics').orderBy('createdAt', 'desc');

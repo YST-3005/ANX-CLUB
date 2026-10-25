@@ -1,8 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useAuth } from '@/providers/AuthProvider';
+import { getAuthToken } from '@/lib/auth-helpers';
 
 export default function AdminBroadcastPage() {
+  const { user } = useAuth();
   const [channels, setChannels] = useState({ email: true, whatsapp: false, inApp: true });
   const [formData, setFormData] = useState({ title: '', body: '', cohort: 'all' });
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -11,9 +14,13 @@ export default function AdminBroadcastPage() {
     e.preventDefault();
     setStatus(null);
     try {
+      const token = await getAuthToken(user);
       const res = await fetch('/api/admin/broadcast', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ ...formData, channels })
       });
       const data = await res.json();

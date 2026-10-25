@@ -167,16 +167,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const ticketId = `ANX-TCK-${Date.now().toString().slice(-6)}`;
     const seatNumber = `Seat #${((event.seatsBooked || event.registeredCount || 0) + 1)}`;
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(JSON.stringify({ ticketId, eventId, eventTitle: event.title, userId, name: registrationData.name }))}`;
-
-    // Award +50 XP for Event Registration
-    let xpAwarded = 50;
-    try {
-      const { awardEventAttendanceXP } = await import("@/lib/gamification");
-      const xpRes = await awardEventAttendanceXP(userId, eventId, event.title);
-      if (xpRes?.xpAwarded) xpAwarded = xpRes.xpAwarded;
-    } catch (xpErr) {
-      console.warn("XP award skipped for event registration:", xpErr);
-    }
+    // Note: +50 XP attendance reward is granted upon live event check-in via /api/events/[id]/check-in per PRD v2
+    const xpAwarded = 0;
 
     // Trigger confirmation email
     if (registrationData.email) {

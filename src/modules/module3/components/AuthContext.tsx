@@ -44,6 +44,7 @@ export interface UserProfile {
   xpTotal?: number;
   leadershipStage?: string;
   recentBadges?: any[];
+  referralCode?: string;
 }
 
 interface AuthContextType {
@@ -219,7 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, pass: string): Promise<any> => {
-    let trimmedEmail = normalizeAdminEmail(email);
+    const trimmedEmail = normalizeAdminEmail(email);
     const isAdminEmail = isOfficialAdminEmail(trimmedEmail);
 
     try {
@@ -377,7 +378,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signup = async (email: string, pass: string, extra?: Partial<UserProfile>): Promise<any> => {
-    let trimmedEmail = normalizeAdminEmail(email);
+    const trimmedEmail = normalizeAdminEmail(email);
     const isAdminEmail = isOfficialAdminEmail(trimmedEmail);
     const fullName = extra?.fullName || (isAdminEmail ? 'System Administrator' : trimmedEmail.split('@')[0]);
 
@@ -400,7 +401,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         interests: extra?.interests || "",
         linkedinUrl: extra?.linkedinUrl || "",
         githubUrl: extra?.githubUrl || "",
-        portfolioUrl: extra?.portfolioUrl || ""
+        portfolioUrl: extra?.portfolioUrl || "",
+        xpTotal: 0,
+        leadershipStage: 'Member',
+        referralCode: `ANX-${uid.substring(0, 6).toUpperCase()}`
       };
 
       try {

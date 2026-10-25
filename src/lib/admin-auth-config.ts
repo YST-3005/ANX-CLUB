@@ -13,7 +13,7 @@ export const OFFICIAL_ADMIN_EMAILS = [
 export function isOfficialAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   const clean = email.trim().toLowerCase();
-  return OFFICIAL_ADMIN_EMAILS.includes(clean) || clean.startsWith('admin@');
+  return OFFICIAL_ADMIN_EMAILS.includes(clean);
 }
 
 export function normalizeAdminEmail(email: string): string {

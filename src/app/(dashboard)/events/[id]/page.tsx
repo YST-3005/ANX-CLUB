@@ -28,6 +28,8 @@ export default function EventDetailPage({ params }: { params?: { id?: string } }
   const [loadingEvent, setLoadingEvent] = useState(true)
   const [registeredList, setRegisteredList] = useState<string[]>([])
   const [loadingReg, setLoadingReg] = useState(false)
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const [showPaidModal, setShowPaidModal] = useState(false)
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -86,8 +88,6 @@ export default function EventDetailPage({ params }: { params?: { id?: string } }
     )
   }
 
-  const [showPremiumModal, setShowPremiumModal] = useState(false)
-  const [showPaidModal, setShowPaidModal] = useState(false)
 
   const isUserRegistered = registeredList.includes(event?.id)
   const totalCapacity = event?.capacity || event?.seats || 100

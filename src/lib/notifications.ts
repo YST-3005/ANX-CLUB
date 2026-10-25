@@ -10,7 +10,7 @@ export interface NotificationPayload {
   channels: NotificationChannel[];
   actionUrl?: string;
   category?: string;
-  emailContact?: string; // required if channels includes email
+  emailContact?: string; // optional fallback contact
   whatsappContact?: string; // required if channels includes whatsapp
 }
 
@@ -28,7 +28,7 @@ export async function sendOmnichannelNotification(payload: NotificationPayload) 
       await notifRef.set({
         id: notifRef.id,
         recipientId,
-        channels: ['in_app'], // We only log the in_app part in this collection for the UI
+        channels: ['in_app'], // Logged in the notifications collection for UI rendering
         category: category || 'system',
         title,
         body,
@@ -41,29 +41,9 @@ export async function sendOmnichannelNotification(payload: NotificationPayload) 
     }
   }
 
-  // 2. Email Notification (Resend)
+  // 2. Email Notification (Logged / In-App)
   if (channels.includes('email') && emailContact) {
-    try {
-      if (process.env.RESEND_API_KEY) {
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: 'ANX <noreply@anxplatform.com>',
-            to: [emailContact],
-            subject: title,
-            html: `<p>${body}</p>${actionUrl ? `<a href="${actionUrl}">View Details</a>` : ''}`
-          })
-        });
-      } else {
-        console.warn('RESEND_API_KEY missing. Skipping email notification.');
-      }
-    } catch (error) {
-      console.error(`Failed to send email notification to ${emailContact}`, error);
-    }
+    console.log(`[Notification Email] User: ${recipientId} | Email: ${emailContact} | Title: ${title}`);
   }
 
   // 3. WhatsApp Notification (Wati.io)

@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useAuth } from '@/providers/AuthProvider';
+import { getAuthToken } from '@/lib/auth-helpers';
 import { BookOpen, CheckCircle, AlertCircle, Plus } from 'lucide-react';
 
 export default function CurriculumEditorPage() {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({ track: 'Full-Stack Web', stepName: '', url: '', isMandatory: true });
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -13,9 +16,13 @@ export default function CurriculumEditorPage() {
     setStatus(null);
     setLoading(true);
     try {
+      const token = await getAuthToken(user);
       const res = await fetch('/api/admin/curriculum', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(formData)
       });
       const data = await res.json();
