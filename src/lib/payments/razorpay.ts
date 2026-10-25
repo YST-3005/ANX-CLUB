@@ -1,10 +1,15 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
-export const razorpay = new Razorpay({
-  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
+function getRazorpayClient() {
+  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    throw new Error("Razorpay credentials are not configured");
+  }
+
+  return new Razorpay({ key_id: keyId, key_secret: keySecret });
+}
 
 export interface CreateOrderOptions {
   amount: number;
@@ -25,7 +30,7 @@ export async function createRazorpayOrder({
     receipt: receipt || `rcpt_${Date.now()}`,
     notes,
   };
-  return razorpay.orders.create(options);
+  return getRazorpayClient().orders.create(options);
 }
 
 export interface VerifySignatureOptions {
