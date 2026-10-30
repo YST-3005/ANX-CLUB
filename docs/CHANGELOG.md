@@ -3,6 +3,22 @@ All notable changes to the A.N.X Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Phase 8] - 2026-10-30
+
+### Added
+- **Automated Mentoring Unit & Integration Test Suite:**
+  - Built `__tests__/mentoring.test.ts` covering 12 test cases: AES-256-GCM token encryption & anti-tamper, scheduling boundary validation (15m–120m duration, past dates, interval overlap collisions), IDOR access control, Meet link masking, and request lifecycle transitions.
+  - Achieved 100% test pass rate across all 31 tests in the repository.
+- **Development-Only Seeding Script:**
+  - Built `scripts/seed-mentoring.ts` protected by production check (`NODE_ENV === 'production'`) that creates test student (`student@anx.club`), 2 mentors (`mentor1@anx.club`, `mentor2@anx.club`), admin (`admin@anx.club`), and sample requests/sessions in Firestore.
+  - Added `"seed:mentoring": "tsx scripts/seed-mentoring.ts"` run command in `package.json`.
+- **Platform Documentation Overhaul:**
+  - Rewrote `README.md` with complete installation guides, test accounts table, Google Cloud OAuth 2.0 configuration guide, and end-to-end walkthrough checklist.
+- **Phase 8 Specification Documentation:**
+  - Generated comprehensive `docs/phase8.md` following the strict 16-section standard.
+
+---
+
 ## [Phase 7] - 2026-10-30
 
 ### Added
