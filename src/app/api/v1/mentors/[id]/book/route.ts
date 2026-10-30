@@ -2,131 +2,147 @@ import { NextResponse, NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { authenticate } from '@/lib/auth';
 import { sendEmail } from '@/lib/resend';
-import { mentorBookingRequestEmail, mentorSessionScheduledEmail } from '@/lib/email-templates';
-import { addMemoryBooking } from '@/lib/memory-store';
+import { mentorBookingRequestEmail } from '@/lib/email-templates';
 import { awardXP } from '@/lib/gamification';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const userId = await authenticate(request);
-    
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
-    
-    // Resolve user & parameters flexibly from auth token or body payload
-    const actualUserId = userId || body.userId || body.memberId || 'default_user_123';
-    const userEmail = body.userEmail || body.email || body.memberEmail || 'member@example.com';
-    const userName = body.userName || body.memberName || 'Member';
+
+    // Fetch verified student profile from Firestore
+    const userDoc = await adminDb.collection('users').doc(userId).get();
+    const userData = userDoc.data() || {};
+    const studentEmail = (userData.email || body.userEmail || body.email || '').toLowerCase().trim();
+    const studentName = userData.fullName || userData.displayName || body.userName || 'Student Member';
+
+    // Fetch mentor details to ensure accurate mentorId, mentorName, and mentorEmail
+    let mentorDoc = await adminDb.collection('mentors').doc(params.id).get();
+    let mentorData = mentorDoc.exists ? mentorDoc.data() : null;
+    let mentorId = params.id;
+    let mentorEmail = '';
+    let mentorName = body.mentorName || 'Expert Mentor';
+
+    if (mentorData) {
+      mentorName = mentorData.name || mentorName;
+      mentorEmail = mentorData.ownerEmail || mentorData.email || '';
+      mentorId = mentorData.uid || mentorData.id || params.id;
+    } else {
+      // Check if params.id was a user ID
+      const mentorUserDoc = await adminDb.collection('users').doc(params.id).get();
+      if (mentorUserDoc.exists) {
+        const u = mentorUserDoc.data() || {};
+        mentorName = u.fullName || mentorName;
+        mentorEmail = u.email || '';
+      }
+    }
+
     const topic = body.topic || body.reason || body.message || '1-on-1 Mentorship Session';
+    const message = body.message || body.reason || '';
+    const preferredDate = body.preferredDate || body.date || '';
+    const preferredTime = body.preferredTime || body.time || '';
+    const preferredTimes = body.preferredTimes || (preferredDate ? [`${preferredDate} ${preferredTime}`.trim()] : []);
     const isPaid = Boolean(body.isPaid || body.paymentId || (body.amount && body.amount > 0));
     const amount = Number(body.amount || 0);
-    
-    const dateTimeStr = body.dateTime || '';
-    const date = body.date || body.preferredDate || (dateTimeStr ? dateTimeStr.split(' ')[0] : new Date().toISOString().split('T')[0]);
-    const time = body.time || body.preferredTime || (dateTimeStr ? dateTimeStr.split(' ').slice(1).join(' ') : '10:00 AM - 11:00 AM');
-    
+
     const today = new Date().toISOString().split('T')[0];
-    if (date < today) {
+    if (preferredDate && preferredDate < today) {
       return NextResponse.json({
         success: false,
-        message: 'Cannot schedule mentorship sessions for past dates. Please select an upcoming date.'
+        message: 'Cannot request mentorship sessions for past dates. Please select an upcoming date.'
       }, { status: 400 });
     }
 
-    const mentorName = body.mentorName || 'Expert Mentor';
-    const message = body.message || body.reason || '';
-
-    // If paid session -> Generate confirmed Google Meet link for the selected slot timing
-    const meetingLink = isPaid || body.meetingLink 
-      ? (body.meetingLink || `https://meet.google.com/anx-${params.id}-${Math.floor(1000 + Math.random() * 9000)}`)
-      : undefined;
-
+    // Unified request data model: NO fake Meet links! Link remains null until scheduled via Google Calendar API
+    const nowISO = new Date().toISOString();
     const requestData = {
-      mentorId: params.id,
+      studentId: userId,
+      studentName,
+      studentEmail,
+      mentorId,
       mentorName,
-      memberId: actualUserId,
-      memberName: userName,
-      memberEmail: userEmail,
+      mentorEmail,
       topic,
-      preferredDate: date,
-      preferredTime: time,
       message,
+      preferredDate,
+      preferredTime,
+      preferredTimes,
       isPaid,
       amount,
-      meetingLink,
-      status: isPaid ? 'Approved' : 'Pending',
-      createdAt: new Date().toISOString()
+      status: 'pending',
+      meetLink: null,
+      meetingLink: null,
+      createdAt: nowISO,
+      updatedAt: nowISO,
+      history: [
+        {
+          action: 'created',
+          performedBy: userId,
+          performedByRole: 'student',
+          timestamp: nowISO,
+          notes: 'Mentorship request submitted by student'
+        }
+      ],
+      // Compatibility aliases
+      memberId: userId,
+      userId,
+      memberName: studentName,
+      memberEmail: studentEmail,
     };
 
-    let docId = 'req_' + Date.now();
-    try {
-      const docRef = await adminDb.collection('mentorRequests').add(requestData);
-      docId = docRef.id;
-    } catch (dbErr) {
-      console.warn('Firestore write for mentor request fallback to memory store:', dbErr);
-    }
+    const docRef = await adminDb.collection('mentorRequests').add(requestData);
+    const docId = docRef.id;
 
-    // Always record in memory store for instant admin and user reflection
-    addMemoryBooking({ id: docId, ...requestData });
-
-    // Award +40 XP for Booking a Mentorship Session
+    // Award +40 XP for submitting a booking request
     let xpAwarded = 40;
     try {
-      const xpRes = await awardXP(actualUserId, 'mentor', 40, docId, `Booked 1-on-1 Mentorship session with ${mentorName}`);
+      const xpRes = await awardXP(userId, 'mentor', 40, docId, `Booked 1-on-1 Mentorship request with ${mentorName}`);
       if (xpRes?.xpAwarded) xpAwarded = xpRes.xpAwarded;
     } catch (xpErr) {
       console.warn('XP award notice for mentor booking:', xpErr);
     }
 
-    // Send notification email asynchronously
+    // Send confirmation email to student (without fake meet link)
     try {
-      if (isPaid && meetingLink) {
-        // Paid Session -> Send Scheduled Confirmation with Google Meet Link according to slot timings
+      if (studentEmail) {
         await sendEmail(
-          userEmail,
-          `🗓️ Mentorship Session Scheduled with ${mentorName}`,
-          mentorSessionScheduledEmail({
-            mentorName,
-            userName,
-            date,
-            time,
-            topic,
-            meetingLink,
-            isPaid: true,
-            amount
-          })
-        );
-      } else {
-        // Free Session -> Send Request Registered Confirmation
-        await sendEmail(
-          userEmail,
+          studentEmail,
           `Mentor Session Requested: ${mentorName}`,
-          mentorBookingRequestEmail(mentorName, date, time, topic)
+          mentorBookingRequestEmail(mentorName, preferredDate || 'Flexible', preferredTime || 'Flexible', topic)
         );
       }
     } catch (emailErr) {
-      console.warn('Notification email sending skipped or failed:', emailErr);
+      console.warn('Notification email sending failed:', emailErr);
     }
 
-    // Create a real-time notification for the mentor if their account exists
+    // Create real-time in-app notification for the mentor
     try {
-      const mentorDoc = await adminDb.collection('mentors').doc(params.id).get();
-      if (mentorDoc.exists && mentorDoc.data()?.ownerEmail) {
-        const userSnap = await adminDb.collection('users')
-          .where('email', '==', mentorDoc.data()?.ownerEmail)
-          .get();
-        
-        if (!userSnap.empty) {
-          const mentorUserId = userSnap.docs[0].id;
-          await adminDb.collection('notifications').add({
-            recipientId: mentorUserId,
-            title: 'New Session Request',
-            body: `${userName} requested a session on ${date} (${time}).`,
-            actionUrl: '/mentor-dashboard',
-            channels: ['in_app'],
-            isRead: false,
-            createdAt: new Date().toISOString()
-          });
-        }
+      let mentorUserId = mentorId;
+      if (!mentorUserId && mentorEmail) {
+        const uSnap = await adminDb.collection('users').where('email', '==', mentorEmail.toLowerCase()).get();
+        if (!uSnap.empty) mentorUserId = uSnap.docs[0].id;
+      }
+
+      if (mentorUserId) {
+        await adminDb.collection('notifications').add({
+          recipientId: mentorUserId,
+          title: 'New Mentoring Request',
+          body: `${studentName} requested mentorship on "${topic}".`,
+          actionUrl: '/mentor-dashboard',
+          channels: ['in_app'],
+          category: 'mentoring',
+          isRead: false,
+          createdAt: nowISO
+        });
       }
     } catch (notifErr) {
       console.warn('Failed to create mentor notification:', notifErr);
@@ -134,21 +150,18 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({
       success: true,
-      message: isPaid 
-        ? `Session registered! Google Meet link for slot ${time} sent to your email.` 
-        : `Registered! Session request sent and confirmation emailed to you.`,
-      data: { 
-        id: docId, 
+      message: 'Mentoring request submitted successfully! Awaiting mentor review.',
+      data: {
+        id: docId,
         xpAwarded,
-        ...requestData 
+        ...requestData
       }
     }, { status: 201 });
   } catch (error: any) {
     console.error('Error submitting mentor request:', error);
     return NextResponse.json(
-      { success: false, error: { code: "INTERNAL_ERROR", message: "Error submitting request" } }, 
+      { success: false, error: { code: 'INTERNAL_ERROR', message: error.message || 'Error submitting request' } },
       { status: 500 }
     );
   }
 }
-

@@ -67,25 +67,55 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Mentor Bookings & Requests Collection
+    // Mentor Bookings, Requests & Sessions Collections (Strict isolation: students read only theirs; mentors read only theirs; client writes blocked - writes must go through secure server routes)
     match /mentorRequests/{requestId} {
       allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
+        resource.data.studentId == request.auth.uid ||
         resource.data.memberId == request.auth.uid ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.mentorId == request.auth.uid ||
+        (resource.data.mentorEmail != null && resource.data.mentorEmail == request.auth.token.email) ||
         isAdmin()
       );
-      allow create: if isAuthenticated();
-      allow update, delete: if isAdmin();
+      // Writes for mentoring data must go through server routes only (Admin SDK)
+      allow write: if isAdmin();
+    }
+
+    match /mentoringSessions/{sessionId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.memberId == request.auth.uid ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.mentorId == request.auth.uid ||
+        (resource.data.mentorEmail != null && resource.data.mentorEmail == request.auth.token.email) ||
+        isAdmin()
+      );
+      // Writes for mentoring sessions must go through server routes only (Admin SDK)
+      allow write: if isAdmin();
     }
 
     match /mentorBookings/{bookingId} {
       allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
+        resource.data.studentId == request.auth.uid ||
         resource.data.memberId == request.auth.uid ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.mentorId == request.auth.uid ||
+        (resource.data.mentorEmail != null && resource.data.mentorEmail == request.auth.token.email) ||
         isAdmin()
       );
-      allow create: if isAuthenticated();
-      allow update, delete: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /mentorSessions/{sessionId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.memberId == request.auth.uid ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.mentorId == request.auth.uid ||
+        (resource.data.mentorEmail != null && resource.data.mentorEmail == request.auth.token.email) ||
+        isAdmin()
+      );
+      allow write: if isAdmin();
     }
 
     // Projects Collection

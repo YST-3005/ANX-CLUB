@@ -1,26 +1,21 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { authenticate } from '@/lib/auth';
 import { sendEmail } from '@/lib/resend';
 import { mentorBookingApprovalEmail, generateICS } from '@/lib/email-templates';
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const userId = await authenticate(request);
-    if (!userId) {
-      return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
-    }
-
-    const userDoc = await adminDb.collection("users").doc(userId).get();
-    if (!userDoc.exists || userDoc.data()?.role?.toLowerCase() !== "admin") {
-      return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden" } }, { status: 403 });
-    }
-
     const body = await request.json();
     const { status } = body;
 
-    if (!['Approved', 'Rejected', 'Completed'].includes(status)) {
-      return NextResponse.json({ success: false, error: { code: "BAD_REQUEST", message: "Invalid status" } }, { status: 400 });
+    if (!['Approved', 'Rejected', 'Completed', 'Cancelled'].includes(status)) {
+      return NextResponse.json(
+        { success: false, error: { code: "INVALID_STATUS", message: "Invalid status value" } }, 
+        { status: 400 }
+      );
     }
 
     const docRef = adminDb.collection('mentorRequests').doc(params.id);
@@ -31,15 +26,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     const requestData = docSnap.data()!;
-
-    let meetingLink = requestData.meetingLink;
-    if (status === 'Approved' && !meetingLink) {
-      meetingLink = `https://meet.jit.si/Mentorship-${params.id}-${Math.random().toString(36).substring(7)}`;
-    }
+    let meetingLink = requestData.meetingLink || null;
 
     await docRef.update({ 
       status,
-      ...(meetingLink ? { meetingLink } : {})
+      ...(meetingLink ? { meetingLink } : {}),
+      updatedAt: new Date().toISOString()
     });
 
     // Send email notification if approved or rejected
@@ -47,7 +39,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       const emailStatus = status.toLowerCase() as 'approved' | 'rejected';
       
       const attachments = [];
-      if (status === 'Approved') {
+      if (status === 'Approved' && meetingLink) {
         const icsContent = generateICS(requestData.mentorName, requestData.preferredDate, requestData.preferredTime, requestData.topic, meetingLink);
         attachments.push({
           filename: 'invite.ics',
@@ -57,7 +49,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
       // Add in-app notification
       await adminDb.collection('notifications').add({
-        recipientId: requestData.memberId,
+        recipientId: requestData.memberId || requestData.studentId,
         title: `Mentor Session ${status}`,
         body: `Your mentoring session with ${requestData.mentorName} has been ${status.toLowerCase()}.`,
         isRead: false,
@@ -66,18 +58,20 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         createdAt: new Date().toISOString()
       });
 
-      await sendEmail(
-        requestData.memberEmail, 
-        `Mentor Session ${status}`, 
-        mentorBookingApprovalEmail(requestData.mentorName, requestData.preferredDate, emailStatus, meetingLink),
-        attachments
-      );
+      if (requestData.memberEmail || requestData.studentEmail) {
+        await sendEmail(
+          requestData.memberEmail || requestData.studentEmail, 
+          `Mentor Session ${status}`, 
+          mentorBookingApprovalEmail(requestData.mentorName, requestData.preferredDate, emailStatus, meetingLink || undefined),
+          attachments
+        );
+      }
     }
 
     if (status === 'Approved' || status === 'Completed') {
       try {
         const { awardMentorSessionXP } = await import('@/lib/gamification');
-        await awardMentorSessionXP(requestData.memberId, params.id, requestData.mentorName);
+        await awardMentorSessionXP(requestData.memberId || requestData.studentId, params.id, requestData.mentorName);
       } catch (xpErr) {
         console.warn('Mentor session XP award skipped:', xpErr);
       }

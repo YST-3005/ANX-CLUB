@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { 
   Sparkles, LayoutDashboard, Calendar, Users, 
   Award, Bell, BookOpen, User, ShieldAlert, LogOut, X, MessageSquare,
-  Briefcase, Target, Trophy
+  Briefcase, Target, Trophy, GraduationCap
 } from 'lucide-react'
 import { MOCK_USER } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -63,6 +63,30 @@ export function DashboardSidebar({ onClose }: SidebarProps) {
 
       {/* Nav Links */}
       <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto scrollbar-thin">
+        {(profile?.role === 'Mentor' || profile?.role === 'Admin') && (
+          <div className="mb-3 pb-3 border-b border-border/10">
+            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-400">
+              Mentor Portal
+            </div>
+            <Link
+              href="/mentor-dashboard"
+              onClick={onClose}
+              className={cn(
+                "relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all group z-10 overflow-hidden",
+                pathname.startsWith('/mentor-dashboard')
+                  ? "text-white bg-gradient-to-r from-purple-600/30 to-indigo-600/30 border border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.25)]"
+                  : "text-purple-300 hover:text-white hover:bg-purple-950/20 border border-purple-500/20"
+              )}
+            >
+              <GraduationCap className={cn("w-5 h-5 transition-transform group-hover:scale-105 relative z-10", pathname.startsWith('/mentor-dashboard') ? "text-pink-400" : "text-purple-400")} />
+              <span className="relative z-10">Mentor Workspace</span>
+              <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                Mentor
+              </span>
+            </Link>
+          </div>
+        )}
+
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           const Icon = item.icon

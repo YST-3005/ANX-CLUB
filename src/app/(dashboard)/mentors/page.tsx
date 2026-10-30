@@ -124,7 +124,7 @@ export default function MentorsPage() {
     setIsSubmitting(true)
     try {
       const isPaid = mentorRate > 0
-      const generatedMeetLink = `https://meet.google.com/anx-${activeBookingMentor.id || 'mentor'}-${Math.floor(1000 + Math.random() * 9000)}`
+      // Real Meet link created upon Google Calendar scheduling only
 
       const payload = {
         memberId: user.uid,
@@ -138,7 +138,7 @@ export default function MentorsPage() {
         reason: bookingDetails.reason,
         isPaid,
         amount: mentorRate,
-        meetingLink: generatedMeetLink,
+        meetingLink: null,
         paymentId: isPaid ? `PAY_MEN_${Date.now()}` : undefined
       }
 
@@ -147,7 +147,7 @@ export default function MentorsPage() {
       setConfirmedBookingData({
         ...payload,
         id: res?.data?.id || `req_${Date.now()}`,
-        meetingLink: res?.data?.meetingLink || generatedMeetLink
+        meetingLink: null
       })
       setPaymentStep('confirmed')
 

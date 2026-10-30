@@ -1,12 +1,13 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, Search, Bell, Sun, Moon, LogOut, User, Settings, Check, Sparkles, Award, Zap, Bot } from 'lucide-react'
-import { MOCK_USER, MOCK_ANNOUNCEMENTS } from '@/lib/constants'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useAuth } from '@/modules/module3/components/AuthContext'
+import { getAuthToken } from '@/lib/auth-helpers'
 import toast from 'react-hot-toast'
+import { cn } from '@/lib/utils'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -16,7 +17,72 @@ interface HeaderProps {
 export function DashboardHeader({ onMenuClick }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [loadingNotifs, setLoadingNotifs] = useState(false)
   const { user, profile, logout } = useAuth()
+
+  const fetchNotifications = async () => {
+    if (!user) return
+    try {
+      const token = await getAuthToken(user)
+      const res = await fetch('/api/v1/notifications', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
+      if (res.ok) {
+        const json = await res.json()
+        if (json.data && Array.isArray(json.data)) {
+          setNotifications(json.data)
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch notifications:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications()
+    }
+  }, [user])
+
+  const unreadCount = notifications.filter(n => !n.isRead).length
+
+  const handleMarkAllRead = async () => {
+    if (!user || unreadCount === 0) return
+    try {
+      const token = await getAuthToken(user)
+      await fetch('/api/v1/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ markAllRead: true })
+      })
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+      toast.success('All notifications marked as read!')
+    } catch (e) {
+      toast.error('Failed to mark notifications as read')
+    }
+  }
+
+  const handleNotificationClick = async (notif: any) => {
+    if (!notif.isRead && user) {
+      try {
+        const token = await getAuthToken(user)
+        await fetch('/api/v1/notifications', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ notificationId: notif.id })
+        })
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n))
+      } catch (e) {}
+    }
+    setShowNotifications(false)
+  }
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-6 border-b border-white/5 bg-[#0b0c1b]/80 backdrop-blur-md select-none shadow-[0_4px_30px_rgba(0,0,0,0.3)]">
@@ -47,7 +113,7 @@ export function DashboardHeader({ onMenuClick }: HeaderProps) {
         {user && (
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400">
             <Zap className="w-4 h-4 fill-orange-400 drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
-            <span className="text-xs font-bold">{(profile as any)?.xp || 1280} XP</span>
+            <span className="text-xs font-bold">{(profile as any)?.xpTotal ?? (profile as any)?.xp ?? 0} XP</span>
           </div>
         )}
 
@@ -65,9 +131,12 @@ export function DashboardHeader({ onMenuClick }: HeaderProps) {
               setShowProfileMenu(false)
             }}
             className="relative p-2 rounded-full border border-white/10 bg-white/5 hover:bg-rose-500/20 hover:border-rose-500/30 text-rose-400 transition-all"
+            title="Notifications"
           >
             <Bell className="w-5 h-5 drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
-            <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-[#0b0c1b]" />
+            {unreadCount > 0 && (
+              <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-[#0b0c1b]" />
+            )}
           </button>
 
           <AnimatePresence>
@@ -79,25 +148,37 @@ export function DashboardHeader({ onMenuClick }: HeaderProps) {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-3 w-80 glass-card rounded-2xl z-20 py-2 overflow-hidden"
+                  className="absolute right-0 mt-3 w-80 glass-card rounded-2xl z-20 py-2 overflow-hidden shadow-2xl border border-white/10"
                 >
                   <div className="px-4 py-2.5 border-b border-white/10 flex justify-between items-center bg-black/20">
-                    <span className="text-xs font-bold uppercase tracking-wider text-white">Recent Activity</span>
-                    <button onClick={() => toast.success('All notifications marked as read!')} className="text-[10px] text-purple-400 font-semibold hover:underline flex items-center gap-1">
-                      <Check className="w-3 h-3" /> Mark all read
-                    </button>
+                    <span className="text-xs font-bold uppercase tracking-wider text-white">
+                      Notifications {unreadCount > 0 && `(${unreadCount})`}
+                    </span>
+                    {unreadCount > 0 && (
+                      <button onClick={handleMarkAllRead} className="text-[10px] text-purple-400 font-semibold hover:underline flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Mark all read
+                      </button>
+                    )}
                   </div>
                   <div className="max-h-72 overflow-y-auto divide-y divide-white/5 scrollbar-thin">
-                    {MOCK_ANNOUNCEMENTS.slice(0, 3).map((ann) => (
-                      <div key={ann.id} className="p-3.5 hover:bg-white/5 transition-colors flex gap-3">
-                        <div className="w-2 h-2 rounded-full bg-purple-500 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
-                        <div>
-                          <p className="text-xs font-semibold text-white line-clamp-1">{ann.title}</p>
-                          <p className="text-[11px] text-muted-foreground line-clamp-2 mt-1 leading-relaxed">{ann.content}</p>
-                          <span className="text-[9px] text-muted-foreground mt-2 block font-medium">Just now</span>
+                    {notifications.length === 0 ? (
+                      <div className="py-8 text-center text-xs text-gray-400">No notifications yet</div>
+                    ) : (
+                      notifications.slice(0, 6).map((notif: any) => (
+                        <div 
+                          key={notif.id} 
+                          onClick={() => handleNotificationClick(notif)}
+                          className={cn("p-3.5 hover:bg-white/5 transition-colors flex gap-3 cursor-pointer", !notif.isRead && "bg-purple-500/5")}
+                        >
+                          <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", notif.isRead ? "bg-gray-600" : "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]")} />
+                          <div className="flex-1 min-w-0">
+                            <p className={cn("text-xs leading-snug truncate", notif.isRead ? "text-gray-300 font-medium" : "text-white font-bold")}>{notif.title}</p>
+                            <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">{notif.body}</p>
+                            <span className="text-[9px] text-gray-500 mt-1 block">{notif.createdAt ? new Date(notif.createdAt).toLocaleDateString() : 'Recent'}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                   <Link
                     href="/announcements"

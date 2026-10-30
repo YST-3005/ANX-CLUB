@@ -150,13 +150,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (isOfficialAdmin || data.role === 'Admin') {
                 data.role = 'Admin';
                 data.membershipType = 'premium';
+              } else if (data.role === 'Mentor') {
+                data.role = 'Mentor';
+              } else if (data.role === 'Premium Member') {
+                data.role = 'Premium Member';
               } else {
-                if (data.role !== 'Premium Member') {
-                  data.role = 'Member';
-                }
+                data.role = 'Member';
               }
               // Check membership expiry
-              if (data.membershipExpiry && new Date() > new Date(data.membershipExpiry) && data.role !== 'Admin') {
+              if (data.membershipExpiry && new Date() > new Date(data.membershipExpiry) && data.role !== 'Admin' && data.role !== 'Mentor') {
                 data.membershipType = 'Free';
                 if (data.role === 'Premium Member') {
                   data.role = 'Member';
