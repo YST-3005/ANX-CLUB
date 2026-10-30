@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin';
 import { verifyRequestAccess } from '@/lib/mentoring-auth';
 import { sendEmail } from '@/lib/resend';
 import { MentoringSession } from '@/types/mentoring';
+import { createGoogleCalendarEvent } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,6 +103,20 @@ export async function POST(
     const sessionRef = adminDb.collection('mentoringSessions').doc();
     const sessionId = sessionRef.id;
 
+    // 4. Attempt Google Calendar & Meet generation
+    const googleResult = await createGoogleCalendarEvent({
+      sessionId,
+      mentorUid: user.uid,
+      mentorEmail: request.mentorEmail || user.email,
+      studentEmail: request.studentEmail || request.memberEmail || '',
+      studentName: request.studentName || request.memberName || 'Student',
+      mentorName: request.mentorName || user.fullName,
+      topic: request.topic,
+      notes: request.message || '',
+      startAtUTC,
+      durationMin: duration,
+    });
+
     const initialHistory = [
       {
         action: 'scheduled',
@@ -111,6 +126,18 @@ export async function POST(
         notes: `Scheduled for ${startAtUTC} (${duration} min)`,
       },
     ];
+
+    if (googleResult.googleEventId) {
+      initialHistory.push({
+        action: googleResult.success ? 'google_sync_succeeded' : 'google_sync_failed',
+        performedBy: user.uid,
+        performedByRole: 'mentor' as const,
+        timestamp: nowISO,
+        notes: googleResult.success
+          ? `Google Meet confirmed: ${googleResult.meetLink}`
+          : `Google sync note: ${googleResult.syncError || 'Conference pending'}`,
+      });
+    }
 
     const sessionData: MentoringSession = {
       id: sessionId,
@@ -126,11 +153,11 @@ export async function POST(
       startAtUTC,
       durationMin: duration,
       status: 'scheduled',
-      googleEventId: null,
-      meetLink: null, // STRICT: No fake links! Remains null until verified by Google API
-      conferenceStatus: 'pending',
-      syncStatus: 'pending',
-      syncError: null,
+      googleEventId: googleResult.googleEventId || null,
+      meetLink: googleResult.meetLink || null, // STRICT: No fake links! Remains null unless verified by Google API
+      conferenceStatus: googleResult.conferenceStatus,
+      syncStatus: googleResult.syncStatus,
+      syncError: googleResult.syncError || null,
       history: initialHistory,
       createdAt: nowISO,
       updatedAt: nowISO,
@@ -183,10 +210,14 @@ export async function POST(
     const studentEmail = request.studentEmail || request.memberEmail;
     if (studentEmail) {
       try {
+        const meetText = googleResult.meetLink
+          ? `<p><strong>Google Meet Link:</strong> <a href="${googleResult.meetLink}">${googleResult.meetLink}</a></p>`
+          : `<p>Your meeting link will be visible in your <a href="https://anx.club/mentors/my-sessions">My Sessions</a> dashboard once Google Calendar sync completes.</p>`;
+
         await sendEmail(
           studentEmail,
           `🗓️ Mentoring Session Scheduled with ${request.mentorName}`,
-          `<p>Hi ${request.studentName || 'Student'},</p><p>Your mentoring session with <strong>${request.mentorName}</strong> has been scheduled!</p><p><strong>Topic:</strong> ${request.topic}<br/><strong>Date & Time:</strong> ${date} at ${time}<br/><strong>Duration:</strong> ${duration} minutes</p><p>Your meeting link will be visible in your <a href="https://anx.club/mentors/my-sessions">My Sessions</a> dashboard.</p>`
+          `<p>Hi ${request.studentName || 'Student'},</p><p>Your mentoring session with <strong>${request.mentorName}</strong> has been scheduled!</p><p><strong>Topic:</strong> ${request.topic}<br/><strong>Date & Time:</strong> ${date} at ${time}<br/><strong>Duration:</strong> ${duration} minutes</p>${meetText}`
         );
       } catch (e) {
         console.warn('Email warning:', e);

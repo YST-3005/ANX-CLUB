@@ -18,6 +18,8 @@ export type MentoringSessionStatus =
 
 export type ConferenceStatus =
   | 'pending'
+  | 'pending_scheduling'
+  | 'scheduling_pending_google'
   | 'confirmed'
   | 'failed'
   | 'not_requested';
@@ -25,7 +27,8 @@ export type ConferenceStatus =
 export type SyncStatus =
   | 'pending'
   | 'synced'
-  | 'failed';
+  | 'failed'
+  | 'not_connected';
 
 export interface AuditEntry {
   action: string;

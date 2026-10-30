@@ -301,6 +301,30 @@ export default function MentorDashboardPage() {
     }
   };
 
+  const handleRetryGoogle = async (sessionId: string) => {
+    setActionLoading(true);
+    try {
+      const token = await getAuthToken(user);
+      const res = await fetch(`/api/v1/mentor/sessions/${sessionId}/retry-google`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || data.error || 'Retry failed');
+      }
+      toast.success(data.message || 'Google Meet synced successfully!');
+      await fetchMentorDashboard();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to retry Google sync');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="py-20 flex flex-col items-center justify-center text-gray-400 text-xs gap-3">
@@ -505,8 +529,14 @@ export default function MentorDashboardPage() {
                   </Button>
                 </a>
               ) : (
-                <Button variant="outline" size="sm" disabled className="text-xs text-gray-500 border-white/10 cursor-not-allowed">
-                  Meet Link Pending
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleRetryGoogle(todayNextSession.id)}
+                  disabled={actionLoading}
+                  className="gap-1.5 text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Retry Google Meet
                 </Button>
               )}
 
@@ -804,6 +834,17 @@ export default function MentorDashboardPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {!hasConfirmedMeet && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleRetryGoogle(session.id)}
+                              disabled={actionLoading}
+                              className="gap-1.5 text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" /> Retry Google Meet
+                            </Button>
+                          )}
                           {hasConfirmedMeet && (
                             <a href={session.meetLink} target="_blank" rel="noopener noreferrer">
                               <Button variant="primary" size="sm" className="gap-2 text-xs bg-emerald-600 hover:bg-emerald-500">

@@ -3,6 +3,26 @@ All notable changes to the A.N.X Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Phase 5] - 2026-10-30
+
+### Added
+- **Google Calendar & Meet OAuth 2.0 Integration:**
+  - Implemented secure Google OAuth 2.0 flow (`GET /api/v1/google/connect`, `GET /api/v1/google/callback`, `GET /api/v1/google/status`, `POST /api/v1/google/disconnect`) requesting `calendar.events` and `userinfo.email` scopes.
+  - Implemented server-side token encryption using AES-256-GCM authenticated cipher with SHA-256 key derivation from `GOOGLE_TOKEN_ENCRYPTION_KEY` and unique 96-bit IVs (`src/lib/google-auth.ts`).
+  - Stored encrypted refresh tokens in private server-only collection `mentorGoogleTokens/{mentorId}`, ensuring tokens are never sent to client devices.
+- **Authentic Google Meet Conference Generation:**
+  - Built `src/lib/google-calendar.ts` utilizing Google Calendar API v3 to insert events with `conferenceSolutionKey: { type: "hangoutsMeet" }` and attendees.
+  - Implemented polling mechanism for asynchronous conference status resolution, verifying that `meetLink` is exposed only when `statusCode === 'success'` with a verified video entry point.
+- **Session Event Lifecycle Synchronization:**
+  - Integrated `calendar.events.patch` on existing `googleEventId` for reschedule and duration updates.
+  - Integrated `calendar.events.delete` on session cancellation from either mentor or student.
+  - Built `POST /api/v1/mentor/sessions/[id]/retry-google` allowing mentors to retry Google Meet generation for pending or failed sessions.
+- **Dashboard UI Integrations:**
+  - Added "Retry Google Meet" buttons on `/mentor-dashboard` for pending/failed sessions.
+  - Connected "Connect with Google" and "Disconnect Google" actions in `/mentor-dashboard/profile` with toast feedback and connection state indicators.
+
+---
+
 ## [Phase 4] - 2026-10-30
 
 ### Added

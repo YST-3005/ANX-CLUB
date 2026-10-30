@@ -12,6 +12,7 @@ import { useAuth } from '@/modules/module3/components/AuthContext';
 import { getAuthToken } from '@/lib/auth-helpers';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import toast from 'react-hot-toast';
 
 interface MentorProfileData {
   id: string;
@@ -51,6 +52,56 @@ export default function MentorProfilePage() {
   const { user, profile, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleConnectGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      const token = await getAuthToken(user);
+      const res = await fetch('/api/v1/google/connect?format=json', {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || 'Failed to start Google connection');
+      }
+      window.location.href = data.url;
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to connect Google Calendar');
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      const token = await getAuthToken(user);
+      const res = await fetch('/api/v1/google/disconnect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to disconnect');
+      }
+      toast.success('Google Calendar disconnected.');
+      setFormData(prev => ({
+        ...prev,
+        googleCalendarConnected: false,
+        googleCalendarEmail: undefined,
+        googleCalendarNeedsReconnect: false,
+      }));
+    } catch (err: any) {
+      toast.error(err.message || 'Error disconnecting Google');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -312,17 +363,27 @@ export default function MentorProfilePage() {
 
           <div className="flex items-center gap-2 shrink-0">
             {formData.googleCalendarConnected ? (
-              <a href="/api/v1/google/disconnect">
-                <Button variant="ghost" size="sm" className="text-xs text-rose-400 hover:text-rose-300">
-                  Disconnect Google
-                </Button>
-              </a>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={googleLoading}
+                onClick={handleDisconnectGoogle}
+                className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+              >
+                {googleLoading ? 'Disconnecting...' : 'Disconnect Google'}
+              </Button>
             ) : (
-              <a href="/api/v1/google/connect">
-                <Button variant="primary" size="sm" className="text-xs bg-blue-600 hover:bg-blue-500">
-                  Connect with Google
-                </Button>
-              </a>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                disabled={googleLoading}
+                onClick={handleConnectGoogle}
+                className="text-xs bg-blue-600 hover:bg-blue-500 text-white"
+              >
+                {googleLoading ? 'Connecting...' : 'Connect with Google'}
+              </Button>
             )}
           </div>
         </div>

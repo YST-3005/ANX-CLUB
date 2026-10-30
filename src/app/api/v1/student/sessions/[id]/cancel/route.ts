@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { verifySessionAccess } from '@/lib/mentoring-auth';
 import { sendEmail } from '@/lib/resend';
+import { deleteGoogleCalendarEvent } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,11 @@ export async function POST(
         notes: reason,
       },
     ];
+
+    // Delete Google Calendar event if scheduled
+    if (session.googleEventId && session.mentorId) {
+      await deleteGoogleCalendarEvent(session.mentorId, session.googleEventId);
+    }
 
     // Update session document in mentoringSessions
     await adminDb.collection('mentoringSessions').doc(params.id).update({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { verifySessionAccess } from '@/lib/mentoring-auth';
+import { patchGoogleCalendarEvent } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,12 @@ export async function PATCH(
     }
 
     const nowISO = new Date().toISOString();
+
+    // Patch existing Google Calendar event if present
+    if (session.googleEventId && session.startAtUTC) {
+      await patchGoogleCalendarEvent(user.uid, session.googleEventId, session.startAtUTC, duration);
+    }
+
     const updatedHistory = [
       ...(session.history || []),
       {
