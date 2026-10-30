@@ -3,6 +3,22 @@ All notable changes to the A.N.X Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Phase 6] - 2026-10-30
+
+### Added
+- **Multi-Channel Notification Architecture:**
+  - Extended notification coverage across all lifecycle events: request submission, acceptance, decline, scheduling, rescheduling, duration update, cancellation, and completion.
+  - Added mentor email dispatch on new booking requests and student in-app notification on session duration updates.
+- **Fail-Safe Resend Email Dispatcher:**
+  - Upgraded `src/lib/resend.ts` with direct Resend API communication when configured, fail-safe virtual delivery fallback, and audit logging into `emailLogs` collection.
+- **Automated Session Reminders Worker:**
+  - Built `GET /api/v1/cron/session-reminders` secured by `CRON_SECRET` to automatically dispatch 24-hour and 1-hour reminders to students and mentors.
+  - Ensured idempotent delivery using `reminder24hSent` and `reminder1hSent` flags.
+- **Phase 6 Specification Documentation:**
+  - Generated comprehensive `docs/phase6.md` following the strict 16-section standard.
+
+---
+
 ## [Phase 5] - 2026-10-30
 
 ### Added

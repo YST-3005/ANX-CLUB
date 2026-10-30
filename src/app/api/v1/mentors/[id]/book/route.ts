@@ -120,6 +120,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           mentorBookingRequestEmail(mentorName, preferredDate || 'Flexible', preferredTime || 'Flexible', topic)
         );
       }
+      if (mentorEmail) {
+        await sendEmail(
+          mentorEmail,
+          `📥 New Mentoring Request from ${studentName}`,
+          `<p>Hi ${mentorName},</p><p>You have received a new mentorship request from <strong>${studentName}</strong> on the topic: <em>"${topic}"</em>.</p><p><strong>Message:</strong> ${message || 'No additional notes provided'}</p><p>Review and accept/decline this request in your <a href="https://anx.club/mentor-dashboard">Mentor Dashboard</a>.</p>`
+        );
+      }
     } catch (emailErr) {
       console.warn('Notification email sending failed:', emailErr);
     }

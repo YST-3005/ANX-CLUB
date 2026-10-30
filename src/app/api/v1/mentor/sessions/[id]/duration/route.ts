@@ -49,6 +49,24 @@ export async function PATCH(
       history: updatedHistory,
     });
 
+    // Notify student in-app
+    if (session.studentId) {
+      try {
+        await adminDb.collection('notifications').add({
+          recipientId: session.studentId,
+          title: 'Session Duration Updated',
+          body: `${session.mentorName} updated the duration for your session on "${session.topic}" to ${duration} minutes.`,
+          actionUrl: '/mentors/my-sessions',
+          category: 'mentoring',
+          channels: ['in_app'],
+          isRead: false,
+          createdAt: nowISO,
+        });
+      } catch (e) {
+        console.warn('Failed to send duration notification to student:', e);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: `Duration updated to ${duration} minutes.`,
