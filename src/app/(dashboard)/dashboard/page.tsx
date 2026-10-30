@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   CalendarCheck,
   AlertCircle,
+  Award,
   ExternalLink,
 } from 'lucide-react';
 import { formatDate, cn } from '@/lib/utils';
@@ -103,6 +104,7 @@ export default function DashboardPage() {
   const recentActivity = dashboardData?.recentActivity || [];
   const roadmapProgress = dashboardData?.learningProgress || dashboardData?.roadmapProgress || null;
   const earnedBadges = dashboardData?.user?.earnedBadges || profile?.recentBadges || [];
+  const earnedCertificates = dashboardData?.user?.earnedCertificates || [];
 
   // Dynamic greeting based on current local hour
   const getGreeting = () => {
@@ -343,6 +345,33 @@ export default function DashboardPage() {
             leadershipStage={stats.leadershipStage ?? profile?.leadershipStage ?? 'Member'}
             recentBadges={earnedBadges}
           />
+
+          {/* Verified Certificates Locker */}
+          {earnedCertificates.length > 0 && (
+            <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl">
+              <div className="flex items-center justify-between p-4 border-b border-white/10">
+                <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Award className="h-4 w-4 text-emerald-400" /> Earned Certificates ({earnedCertificates.length})
+                </h2>
+              </div>
+              <div className="p-4 space-y-2.5">
+                {earnedCertificates.slice(0, 3).map((cert: any) => (
+                  <div key={cert.id} className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{cert.title}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">Code: {cert.verificationCode}</p>
+                    </div>
+                    <Link
+                      href={`/verify/${cert.verificationCode}`}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-semibold text-[10px] border border-emerald-500/20 shrink-0"
+                    >
+                      Verify →
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Learning Progress / Career Roadmap */}
           <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.05)] transition-all">

@@ -258,6 +258,30 @@ export async function GET(req: NextRequest) {
       }
     } catch (e) {}
 
+    // 12. Certificates earned
+    let earnedCertificates: any[] = [];
+    try {
+      const certSnaps = await Promise.all([
+        adminDb.collection('certificates').where('recipientId', '==', userId).get(),
+        adminDb.collection('certificates').where('userId', '==', userId).get(),
+      ]);
+      const certMap = new Map<string, any>();
+      certSnaps.forEach(snap => {
+        snap.forEach(doc => {
+          const d = doc.data();
+          certMap.set(doc.id, {
+            id: doc.id,
+            title: d.title || d.eventName || 'Certificate of Completion',
+            recipientName: d.recipientName || userData.fullName || 'Member',
+            issueDate: d.issueDate || d.createdAt || '',
+            verificationCode: d.verificationCode || doc.id,
+            certificateUrl: d.certificateUrl || d.pdfUrl || null,
+          });
+        });
+      });
+      earnedCertificates = Array.from(certMap.values());
+    } catch (e) {}
+
     // Breakdown of mentoring requests by status
     const requestStatusBreakdown = {
       pending: studentRequests.filter(r => r.status === 'pending').length,
@@ -283,6 +307,7 @@ export async function GET(req: NextRequest) {
           xpTotal,
           leadershipStage,
           earnedBadges,
+          earnedCertificates,
         },
         stats: {
           eventsRegisteredCount: registeredEvents.length,
@@ -291,6 +316,7 @@ export async function GET(req: NextRequest) {
           requestStatusBreakdown,
           projectsCount,
           communityPostsCount,
+          certificatesCount: earnedCertificates.length,
           xpTotal,
           leadershipStage,
         },
