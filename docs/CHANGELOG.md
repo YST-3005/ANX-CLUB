@@ -3,10 +3,28 @@ All notable changes to the A.N.X Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased] - Phase 3 Planned
-- **Mentoring Workflow Actions:** Mentor accept/decline actions for booking requests with notes.
-- **Student Notifications:** Dynamic notification generation when requests are accepted or declined.
-- **Calendar & Rescheduling:** Mentoring slot selection and rescheduling workflows.
+## [Phase 3] - 2026-10-29
+
+### Added
+- **Student Dashboard All-Real Data Integration:**
+  - Implemented dynamic greeting, role/XP badges, and live KPI stats (Events Registered, Upcoming Sessions, Projects Submitted, Community Discussions) on `/dashboard`.
+  - Implemented "My Mentoring" bento widget displaying live requests in review and upcoming sessions with confirmed Google Meet button or "Pending" indicators.
+  - Connected gamification widget to live XP total and earned badges.
+  - Replaced dead `#` links with active functional page routes (`/events`, `/mentors`, `/mentors/my-sessions`, `/incubator`, `/community`, `/career`).
+  - Added 1-click referral link generator.
+- **Dedicated Student API Layer:**
+  - Built `GET /api/v1/student/dashboard` returning user metrics, events, announcements, mentoring requests/sessions, and activity feed.
+  - Built `GET /api/v1/student/sessions` returning student's requests, upcoming sessions, and history.
+  - Built `POST /api/v1/student/requests/[id]/cancel` with IDOR validation.
+  - Built `POST /api/v1/student/sessions/[id]/cancel` with IDOR validation.
+- **Student Sessions Workspace (`/mentors/my-sessions`):**
+  - Implemented dedicated three-tab interface: "Upcoming Sessions", "Requests in Review", and "History & Completed".
+  - Added self-service cancellation modals with optional cancellation reason.
+  - Converted UTC timestamps into student's local timezone.
+- **Mentor Discovery Upgrades (`/mentors`):**
+  - Added multi-criteria search by keyword, company, expertise, and rate.
+  - Added detailed mentor profile inspection modal.
+  - Added validated mentoring request form modal with client validation.
 
 ---
 
@@ -21,18 +39,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Role-Gated Sidebar:**
   - Added "Mentor Portal" navigation link in `DashboardSidebar.tsx` visible strictly to users with `Mentor` or `Admin` role.
 - **Security & Data Isolation:**
-  - Updated `firestore.rules` for `/mentorRequests`, `/mentorBookings`, and `/mentorSessions` to enforce strict student and mentor data isolation.
+  - Updated `firestore.rules` for `/mentorRequests`, `/mentoringSessions`, `/mentorBookings`, and `/mentorSessions` enforcing data isolation and blocking client-side writes.
+  - Implemented centralized IDOR-safe server helper `src/lib/mentoring-auth.ts`.
+  - Added composite indexes for mentoring collections in `firestore.indexes.json`.
 
 ### Changed
 - **Auth Context:**
   - Fixed role coercion bug in `AuthContext.tsx` ensuring `Mentor` role is preserved on Firestore snapshot loads and preventing expiry downgrades.
-- **Student Dashboard & Services:**
-  - Replaced broken `mentorBookings` query in `bookingService.ts` with `mentorRequests.where('memberId', '==', userId)` and eliminated fake mock session fallbacks.
-  - Eliminated hardcoded mock data across Student Dashboard (`/dashboard`) including `MOCK_EVENTS`, `MOCK_ANNOUNCEMENTS`, `MOCK_MENTORS`, fake activity, and fake badges.
-  - Replaced all missing or empty datasets with clean, responsive empty states with relevant call-to-actions.
-  - Enforced `"Meeting Link: Pending"` policy in accordance with Google Meet guidelines (no fake Meet URLs).
+- **Fake Links Neutralization:**
+  - Cataloged and neutralized all 4 legacy fake Google Meet / Jitsi link generators across the codebase.
+- **Notification Center:**
   - Connected notification bell in `DashboardHeader.tsx` to `GET` and `PATCH` `/api/v1/notifications` with unread badge counter.
-  - Updated dashboard BFF aggregator `/api/v1/module2/dashboard` to query real activity logs from `xpLedger` and real progress from `roadmapProgress`.
 
 ---
 

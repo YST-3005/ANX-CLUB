@@ -1,7 +1,8 @@
-'use client'
-import React, { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { motion } from 'framer-motion'
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
 import {
   Calendar,
   Users2,
@@ -16,89 +17,122 @@ import {
   Bot,
   Map,
   Shield,
-  MessageSquare
-} from 'lucide-react'
-import { MOCK_USER, MOCK_EVENTS, MOCK_ANNOUNCEMENTS, MOCK_RESOURCES, MOCK_MENTORS } from '@/lib/constants'
-import { formatDate, cn } from '@/lib/utils'
-import toast from 'react-hot-toast'
-import { useAuth } from '@/modules/module3/components/AuthContext'
-import { getAuthToken } from '@/lib/auth-helpers'
-import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
-import { Avatar } from '@/components/ui/Avatar'
-import { Button } from '@/components/ui/Button'
-import GamificationWidget from '@/components/dashboard/GamificationWidget'
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
+  MessageSquare,
+  Sparkles,
+  Video,
+  CheckCircle2,
+  CalendarCheck,
+  AlertCircle,
+  ExternalLink,
+} from 'lucide-react';
+import { formatDate, cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
+import { useAuth } from '@/modules/module3/components/AuthContext';
+import { getAuthToken } from '@/lib/auth-helpers';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Avatar } from '@/components/ui/Avatar';
+import { Button } from '@/components/ui/Button';
+import GamificationWidget from '@/components/dashboard/GamificationWidget';
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
+const fadeUp: any = {
+  hidden: { opacity: 0, y: 15 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.05, duration: 0.5, ease: 'easeOut' as const },
+    transition: { delay: i * 0.05, duration: 0.4, ease: 'easeOut' },
   }),
-}
-
-const activityData = [
-  { month: 'Jan', events: 2, sessions: 1 },
-  { month: 'Feb', events: 4, sessions: 2 },
-  { month: 'Mar', events: 3, sessions: 3 },
-  { month: 'Apr', events: 7, sessions: 2 },
-  { month: 'May', events: 5, sessions: 4 },
-  { month: 'Jun', events: 8, sessions: 5 },
-  { month: 'Jul', events: 6, sessions: 3 },
-]
+};
 
 export default function DashboardPage() {
-  const { user, profile, loading: authLoading } = useAuth()
-  const [dashboardData, setDashboardData] = useState<any>(null)
-  const [registeredList, setRegisteredList] = useState<string[]>([])
-  const [events, setEvents] = useState<any[]>([])
-  const [chartReady, setChartReady] = useState(false)
+  const { user, profile, loading: authLoading } = useAuth();
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loadingData, setLoadingData] = useState(true);
 
-  useEffect(() => {
-    setChartReady(true)
-  }, [])
-
-  useEffect(() => {
-    const fetchBff = async () => {
-      if (!user) return
-      try {
-        const token = await getAuthToken(user)
-        const res = await fetch("/api/v1/module2/dashboard", {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        })
-        if (res.ok) {
-          const data = await res.json()
-          setDashboardData(data)
-          if (data.registeredEvents) {
-            setRegisteredList(data.registeredEvents.map((e: any) => e.id))
-          }
-          if (data.upcomingEvents) {
-            setEvents(data.upcomingEvents)
-          }
+  const fetchStudentDashboard = async () => {
+    if (!user) {
+      setLoadingData(false);
+      return;
+    }
+    setLoadingData(true);
+    try {
+      const token = await getAuthToken(user);
+      // Fetch from dedicated student dashboard API
+      const res = await fetch('/api/v1/student/dashboard', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setDashboardData(json.data);
+          setLoadingData(false);
+          return;
         }
-      } catch (err) {
-        console.warn("Backend not reachable, using mock data.", err)
       }
-    }
-    if (user && !authLoading) {
-      fetchBff()
-    }
-  }, [user, authLoading])
 
-  const upcomingEvents = events.length > 0 ? events : MOCK_EVENTS;
-  const announcements = dashboardData?.announcements || MOCK_ANNOUNCEMENTS;
-  const mentorBookings = dashboardData?.mentorBookings || MOCK_MENTORS;
-  const projects = dashboardData?.projects || [];
+      // Fallback to module2 BFF aggregator if student endpoint not ready
+      const bffRes = await fetch('/api/v1/module2/dashboard', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (bffRes.ok) {
+        const bffJson = await bffRes.json();
+        setDashboardData(bffJson);
+      }
+    } catch (err) {
+      console.warn('Dashboard fetch notice:', err);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && !authLoading) {
+      fetchStudentDashboard();
+    } else if (!authLoading && !user) {
+      setLoadingData(false);
+    }
+  }, [user, authLoading]);
+
+  // Derived real data
+  const stats = dashboardData?.stats || {};
+  const upcomingEvents = dashboardData?.upcomingEvents || [];
+  const announcements = dashboardData?.announcements || [];
+  const myMentoring = dashboardData?.myMentoring || {};
+  const mentoringRequests = myMentoring.requests || [];
+  const upcomingSessions = myMentoring.upcomingSessions || dashboardData?.mentorBookings || [];
+  const recentActivity = dashboardData?.recentActivity || [];
+  const roadmapProgress = dashboardData?.learningProgress || dashboardData?.roadmapProgress || null;
+  const earnedBadges = dashboardData?.user?.earnedBadges || profile?.recentBadges || [];
+
+  // Dynamic greeting based on current local hour
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  const displayName = profile?.fullName
+    ? profile.fullName.split(' ')[0]
+    : user?.displayName
+    ? user.displayName.split(' ')[0]
+    : 'Member';
+
+  // Format UTC date into user's local timezone
+  const formatLocalDateTime = (utcString: string) => {
+    try {
+      const date = new Date(utcString);
+      if (isNaN(date.getTime())) return utcString;
+      return new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(date);
+    } catch (e) {
+      return utcString;
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto w-full pb-10">
@@ -108,88 +142,124 @@ export default function DashboardPage() {
         animate="visible"
         custom={0}
         variants={fadeUp}
-        className="relative w-full rounded-3xl overflow-hidden border border-primary/20 shadow-[0_0_30px_rgba(139,92,246,0.15)] bg-[#0d0a1b] min-h-[360px]"
+        className="relative w-full rounded-3xl overflow-hidden border border-primary/20 shadow-[0_0_30px_rgba(139,92,246,0.15)] bg-[#0d0a1b] min-h-[340px]"
       >
-        {/* Space Background Simulation */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#0d0a1b] via-[#1a0b2e] to-[#0d0a1b] z-0" />
         <div className="absolute top-[-50%] left-[20%] w-[800px] h-[800px] rounded-full bg-blue-600/20 blur-[120px] mix-blend-screen z-0" />
         <div className="absolute top-[-30%] right-[10%] w-[600px] h-[600px] rounded-full bg-fuchsia-600/20 blur-[100px] mix-blend-screen z-0" />
-        {/* Planet Simulation */}
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full border border-cyan-500/30 shadow-[0_0_50px_rgba(6,182,212,0.4)] opacity-50 z-0" />
-        
-        <div className="relative z-10 p-8 flex flex-col h-full justify-between gap-10">
+
+        <div className="relative z-10 p-8 flex flex-col h-full justify-between gap-8">
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight flex items-center gap-3">
                 {user ? (
-                  <>Welcome back, {profile?.fullName ? profile.fullName.split(' ')[0] : (user?.displayName ? user.displayName.split(' ')[0] : 'Member')}! <span className="text-2xl">👋</span></>
+                  <>
+                    {getGreeting()}, {displayName}! <span className="text-2xl">👋</span>
+                  </>
                 ) : (
-                  <>Welcome to A.N.X Ecosystem <span className="text-2xl">🚀</span></>
+                  <>
+                    Welcome to A.N.X Platform <span className="text-2xl">🚀</span>
+                  </>
                 )}
               </h1>
               <p className="text-sm md:text-base text-gray-300 mt-2 max-w-lg">
-                {user 
-                  ? 'Continue your journey of learning, building and growing with A.N.X'
-                  : 'Explore events, book sessions with expert mentors, and accelerate your tech career.'}
+                {user
+                  ? 'Your single dashboard for hackathons, verified mentoring, real-world incubator sprints, and career prep.'
+                  : 'Explore events, connect with senior engineering mentors, and build projects.'}
               </p>
+
               {!user ? (
-                <div className="mt-5 flex gap-3">
-                  <Link href="/login" className="px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white rounded-xl text-xs font-semibold shadow-[0_0_15px_rgba(217,70,239,0.4)]">
-                    Sign In
+                <div className="flex items-center gap-4 mt-6">
+                  <Link href="/login">
+                    <Button variant="primary" size="md">Sign In to Dashboard</Button>
                   </Link>
-                  <Link href="/signup" className="px-5 py-2.5 bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-xl text-xs font-semibold">
-                    Join Free
+                  <Link href="/signup">
+                    <Button variant="outline" size="md">Create Account</Button>
                   </Link>
                 </div>
               ) : (
-                <div className="mt-6 p-4 rounded-xl border border-primary/30 bg-black/40 backdrop-blur-md max-w-sm inline-block">
-                  <p className="text-sm text-gray-300 italic">
-                    "The future depends on what you do today."
-                  </p>
+                <div className="flex items-center gap-3 mt-4">
+                  <span className="text-xs text-purple-300 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-full font-mono">
+                    Role: {profile?.role || 'Member'}
+                  </span>
+                  <span className="text-xs text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-3 py-1 rounded-full font-mono">
+                    XP: {stats.xpTotal ?? profile?.xpTotal ?? 0}
+                  </span>
+                  <span className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full font-mono">
+                    Stage: {stats.leadershipStage ?? profile?.leadershipStage ?? 'Member'}
+                  </span>
                 </div>
               )}
             </div>
-            
-            {/* AI Assistant Widget */}
-            <div className="w-80 rounded-2xl border border-fuchsia-500/30 bg-black/50 backdrop-blur-xl p-5 shadow-[0_0_20px_rgba(217,70,239,0.15)]">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="font-bold text-sm text-white">A.N.X AI Assistant</span>
+
+            <div className="hidden lg:flex flex-col items-end">
+              <div
+                onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+                className="cursor-pointer border border-white/10 hover:border-fuchsia-500/50 bg-black/40 backdrop-blur-xl p-3 rounded-2xl flex items-center gap-3 shadow-xl transition-all"
+              >
+                <div className="w-8 h-8 rounded-lg bg-fuchsia-500/20 flex items-center justify-center text-fuchsia-400">
+                  <Bot className="h-4 w-4" />
                 </div>
-                <Badge variant="primary" className="bg-fuchsia-500 text-white border-none text-[10px] px-2 py-0">BETA</Badge>
+                <div className="text-left">
+                  <div className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    Search & Ask AI <Badge variant="primary" className="bg-fuchsia-500 text-white border-none text-[9px] px-1.5 py-0">Ctrl+K</Badge>
+                  </div>
+                  <div className="text-[10px] text-gray-400">Find mentors, events, and roadmaps</div>
+                </div>
               </div>
-              <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-                Hello {profile?.fullName ? profile.fullName.split(' ')[0] : (user?.displayName ? user.displayName.split(' ')[0] : 'Member')}! I can help you find events, mentors, roadmaps and more.
-              </p>
-              <Button onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))} className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white border-none shadow-[0_0_15px_rgba(217,70,239,0.4)]">
-                Ask Anything <Zap className="h-3 w-3 ml-2" />
-              </Button>
             </div>
           </div>
 
-          {/* 4 Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-10">
+          {/* 4 Real Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-6">
             {[
-              { label: 'Events Registered', value: upcomingEvents.length.toString(), inc: '20%', icon: Calendar, color: 'text-purple-400', bg: 'bg-purple-500/20' },
-              { label: 'Mentor Sessions', value: mentorBookings.length.toString(), inc: '50%', icon: Users2, color: 'text-blue-400', bg: 'bg-blue-500/20' },
-              { label: 'Projects In Progress', value: projects.length.toString(), inc: '25%', icon: FolderGit2, color: 'text-orange-400', bg: 'bg-orange-500/20' },
-              { label: 'Community Posts', value: '8', inc: '35%', icon: MessageSquare, color: 'text-green-400', bg: 'bg-green-500/20' },
+              {
+                label: 'Events Registered',
+                value: (stats.eventsRegisteredCount ?? dashboardData?.registeredEvents?.length ?? 0).toString(),
+                subtext: 'Upcoming campus workshops',
+                icon: Calendar,
+                color: 'text-purple-400',
+                bg: 'bg-purple-500/20',
+              },
+              {
+                label: 'Upcoming Sessions',
+                value: (stats.upcomingSessionsCount ?? upcomingSessions.length ?? 0).toString(),
+                subtext: mentoringRequests.length > 0
+                  ? `${mentoringRequests.length} requests in review`
+                  : 'Scheduled 1-on-1 calls',
+                icon: Users2,
+                color: 'text-blue-400',
+                bg: 'bg-blue-500/20',
+              },
+              {
+                label: 'Projects Submitted',
+                value: (stats.projectsCount ?? dashboardData?.projects?.length ?? 0).toString(),
+                subtext: 'Incubator ideas & repos',
+                icon: FolderGit2,
+                color: 'text-orange-400',
+                bg: 'bg-orange-500/20',
+              },
+              {
+                label: 'Community Discussions',
+                value: (stats.communityPostsCount ?? 0).toString(),
+                subtext: 'Topics authored by you',
+                icon: MessageSquare,
+                color: 'text-green-400',
+                bg: 'bg-green-500/20',
+              },
             ].map((stat, i) => (
               <div key={i} className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl p-4 flex flex-col justify-between hover:border-white/20 transition-all">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-medium text-gray-400">{stat.label}</p>
-                    <p className="text-3xl font-bold text-white mt-1">{stat.value}</p>
+                    <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">{stat.label}</p>
+                    <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
                   </div>
-                  <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", stat.bg)}>
-                    <stat.icon className={cn("h-5 w-5", stat.color)} />
+                  <div className={cn('p-2.5 rounded-xl', stat.bg)}>
+                    <stat.icon className={cn('h-5 w-5', stat.color)} />
                   </div>
                 </div>
-                <div className="flex items-center gap-1 mt-4 text-xs font-bold text-emerald-400">
-                  <ArrowRight className="h-3 w-3 -rotate-45" /> {stat.inc} this month
+                <div className="flex items-center gap-1 mt-3 text-[11px] font-medium text-gray-400">
+                  {stat.subtext}
                 </div>
               </div>
             ))}
@@ -199,30 +269,35 @@ export default function DashboardPage() {
 
       {/* 2. THREE COLUMN BENTO GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
         {/* COLUMN 1 */}
         <div className="space-y-6">
           {/* Upcoming Events */}
-          <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
+          <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl hover:shadow-[0_0_30px_rgba(168,85,247,0.05)] transition-all">
             <div className="flex items-center justify-between p-5 border-b border-white/10">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Zap className="h-4 w-4 text-fuchsia-500" /> Upcoming Events
+                <Calendar className="h-4 w-4 text-purple-400" /> Upcoming Events
               </h2>
-              <Link href="/events" className="text-xs font-medium text-fuchsia-400 hover:text-fuchsia-300">View All →</Link>
+              <Link href="/events" className="text-xs font-medium text-purple-400 hover:text-purple-300">View All →</Link>
             </div>
             <div className="p-3 space-y-2">
               {upcomingEvents.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 text-xs">No upcoming events</div>
+                <div className="py-8 text-center space-y-2">
+                  <Calendar className="w-8 h-8 text-gray-600 mx-auto" />
+                  <p className="text-xs font-semibold text-gray-300">No Upcoming Events</p>
+                  <p className="text-[11px] text-gray-500">Check back soon for hackathons and workshops.</p>
+                </div>
               ) : (
                 upcomingEvents.slice(0, 3).map((ev: any) => (
                   <Link href={`/events/${ev.id}`} key={ev.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all cursor-pointer">
-                    <div className={cn("w-14 h-14 rounded-lg bg-gradient-to-br shrink-0 shadow-lg from-cyan-600 to-blue-600")} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white truncate">{ev.title}</p>
-                      <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1"><Calendar className="h-3 w-3"/> {formatDate(ev.date)}</p>
-                      <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1"><Map className="h-3 w-3"/> {ev.venue || 'Online'}</p>
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 shrink-0 flex items-center justify-center text-white font-bold text-xs shadow-md">
+                      {ev.date ? new Date(ev.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'EV'}
                     </div>
-                    <Badge variant="primary" className="border-fuchsia-500/50 text-fuchsia-400 bg-fuchsia-500/10 text-[10px]">Registered</Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{ev.title}</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
+                        <Map className="h-3 w-3 text-purple-400 shrink-0" /> {ev.location || 'Online'}
+                      </p>
+                    </div>
                   </Link>
                 ))
               )}
@@ -230,29 +305,29 @@ export default function DashboardPage() {
           </Card>
 
           {/* Announcements */}
-          <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
+          <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl hover:shadow-[0_0_30px_rgba(59,130,246,0.05)] transition-all">
             <div className="flex items-center justify-between p-5 border-b border-white/10">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Megaphone className="h-4 w-4 text-fuchsia-500" /> Announcements
+                <Megaphone className="h-4 w-4 text-blue-400" /> Platform Announcements
               </h2>
-              <Link href="/announcements" className="text-xs font-medium text-fuchsia-400 hover:text-fuchsia-300">View All →</Link>
             </div>
-            <div className="p-3 space-y-2">
+            <div className="p-4 space-y-3">
               {announcements.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 text-xs">No new announcements</div>
+                <div className="py-6 text-center space-y-2">
+                  <Megaphone className="w-7 h-7 text-gray-600 mx-auto" />
+                  <p className="text-xs font-semibold text-gray-300">No Announcements</p>
+                  <p className="text-[11px] text-gray-500">Stay tuned for campus announcements and release notes.</p>
+                </div>
               ) : (
                 announcements.slice(0, 3).map((ann: any) => (
-                  <div key={ann.id} className="p-3 rounded-xl hover:bg-white/5 transition-all cursor-pointer">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex gap-3">
-                        <Megaphone className="h-5 w-5 mt-0.5 text-orange-400" />
-                        <div>
-                          <p className="text-sm font-bold text-white">{ann.title}</p>
-                          <p className="text-xs text-gray-400 mt-1 line-clamp-2 leading-relaxed">{ann.content}</p>
-                          <p className="text-[10px] text-gray-500 mt-2">{formatDate(ann.createdAt || new Date())}</p>
-                        </div>
-                      </div>
+                  <div key={ann.id} className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-white truncate">{ann.title}</p>
+                      <span className="text-[10px] text-gray-500 shrink-0">
+                        {ann.createdAt ? new Date(ann.createdAt).toLocaleDateString() : ''}
+                      </span>
                     </div>
+                    <p className="text-[11px] text-gray-400 line-clamp-2">{ann.content}</p>
                   </div>
                 ))
               )}
@@ -263,208 +338,269 @@ export default function DashboardPage() {
         {/* COLUMN 2 */}
         <div className="space-y-6">
           {/* Gamification Widget */}
-          <GamificationWidget 
-            xpTotal={profile?.xpTotal || dashboardData?.xpTotal || 1280} 
-            leadershipStage={profile?.leadershipStage || 'Core Team'} 
-            recentBadges={profile?.recentBadges || [
-              { id: '1', name: 'Early Bird', iconUrl: 'https://cdn-icons-png.flaticon.com/512/5978/5978182.png' },
-              { id: '2', name: 'Product Builder', iconUrl: 'https://cdn-icons-png.flaticon.com/512/473/473402.png' }
-            ]} 
+          <GamificationWidget
+            xpTotal={stats.xpTotal ?? profile?.xpTotal ?? 0}
+            leadershipStage={stats.leadershipStage ?? profile?.leadershipStage ?? 'Member'}
+            recentBadges={earnedBadges}
           />
 
-          {/* Learning Progress */}
-          <Card padding="none" className="glass border-white/10 overflow-hidden h-fit shadow-xl hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
+          {/* Learning Progress / Career Roadmap */}
+          <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.05)] transition-all">
             <div className="flex items-center justify-between p-5 border-b border-white/10">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Zap className="h-4 w-4 text-cyan-400" /> Your Learning Progress
+                <BookOpen className="h-4 w-4 text-cyan-400" /> Learning Progress
               </h2>
               <Link href="/resources" className="text-xs font-medium text-cyan-400 hover:text-cyan-300">View Roadmaps →</Link>
             </div>
             <div className="p-6">
-              <div className="flex items-center gap-6">
-                {/* Fake Circle Chart */}
-                <div className="w-24 h-24 rounded-full border-[8px] border-[#1e1b4b] relative flex items-center justify-center shrink-0">
-                  <div className="absolute inset-[-8px] rounded-full border-[8px] border-cyan-400 border-r-transparent border-b-transparent rotate-45 shadow-[0_0_15px_rgba(34,211,238,0.5)]" />
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-white">72%</p>
-                    <p className="text-[8px] text-gray-400 uppercase">Overall</p>
+              {roadmapProgress ? (
+                <div className="flex items-center gap-6">
+                  <div className="w-20 h-20 rounded-full border-[6px] border-[#1e1b4b] relative flex items-center justify-center shrink-0">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-white">{roadmapProgress.progressPercentage || 0}%</p>
+                      <p className="text-[8px] text-gray-400 uppercase">Done</p>
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <div className="flex justify-between items-center text-xs font-bold text-white">
+                      <span>{roadmapProgress.roadmapTitle || 'Active Roadmap'}</span>
+                      <Badge variant="blue" className="text-[9px] bg-blue-500/20 text-blue-400 border-none">Active</Badge>
+                    </div>
+                    <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-400 to-blue-600 shadow-[0_0_10px_rgba(34,211,238,0.8)]"
+                        style={{ width: `${roadmapProgress.progressPercentage || 0}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-gray-400">
+                      {roadmapProgress.completedStepIds?.length || 0} checkpoint steps completed
+                    </p>
                   </div>
                 </div>
-                <div className="flex-1 space-y-4">
-                  <div className="flex justify-between items-center text-sm font-bold text-white">
-                    <span>Full Stack Web Development</span>
-                    <Badge variant="blue" className="text-[9px] bg-blue-500/20 text-blue-400 border-none">Advanced</Badge>
-                  </div>
-                  <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-cyan-400 to-blue-600 w-[72%] shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-white/10">
-                    <div><p className="text-lg font-bold text-white">12</p><p className="text-[10px] text-gray-400">Completed</p></div>
-                    <div><p className="text-lg font-bold text-white">4</p><p className="text-[10px] text-gray-400">In Progress</p></div>
-                    <div><p className="text-lg font-bold text-white">3</p><p className="text-[10px] text-gray-400">Upcoming</p></div>
-                  </div>
+              ) : (
+                <div className="py-6 text-center space-y-3">
+                  <BookOpen className="w-8 h-8 text-cyan-400/60 mx-auto" />
+                  <p className="text-xs font-semibold text-white">No Roadmap Track Started</p>
+                  <p className="text-[11px] text-gray-400 max-w-xs mx-auto">
+                    Pick from interactive engineering roadmaps (Full-Stack, AI/ML, DevOps, Cloud) to track verifiable milestones.
+                  </p>
+                  <Link
+                    href="/resources"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-semibold text-xs border border-cyan-500/30 transition-all"
+                  >
+                    Browse Roadmaps →
+                  </Link>
                 </div>
-              </div>
-
-              {/* Weekly Activity Chart Area */}
-              <div className="mt-8">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xs font-bold text-white">Weekly Activity</h3>
-                  <select onChange={(e) => toast.success(`Changed period to ${e.target.value}`)} className="bg-black/50 border border-white/10 text-xs text-gray-300 rounded px-2 py-1 outline-none">
-                    <option value="This Week">This Week</option>
-                    <option value="This Month">This Month</option>
-                    <option value="All Time">All Time</option>
-                  </select>
-                </div>
-                <div className="h-[120px] w-full mt-2 relative">
-                  {chartReady && (
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={120}>
-                      <AreaChart data={activityData} margin={{ top: 10, right: 0, bottom: 0, left: -20 }}>
-                        <defs>
-                          <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#d946ef" stopOpacity={0.5} />
-                            <stop offset="95%" stopColor="#d946ef" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                        <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={{ background: '#000', border: '1px solid #333' }} />
-                        <Area type="monotone" dataKey="events" stroke="#d946ef" strokeWidth={3} fill="url(#purpleGrad)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
           </Card>
 
-          {/* Recent Activity */}
+          {/* Recent Activity Feed */}
           <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
             <div className="flex items-center justify-between p-5 border-b border-white/10">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Zap className="h-4 w-4 text-fuchsia-500" /> Recent Activity
               </h2>
-              <button onClick={() => toast.success('Activity history coming soon!')} className="text-xs font-medium text-fuchsia-400 hover:text-fuchsia-300">View All →</button>
             </div>
-            <div className="p-5 space-y-6">
-              {[
-                { icon: Calendar, color: 'bg-purple-500', text: 'You registered for AI in Real World - Workshop', time: '2h ago' },
-                { icon: Users2, color: 'bg-orange-500', text: 'You booked a session with Rahul Sharma', time: '1d ago' },
-                { icon: Zap, color: 'bg-emerald-500', text: 'Your project "AI Chat Assistant" was approved', time: '2d ago' },
-                { icon: Shield, color: 'bg-yellow-500', text: 'You earned a new badge "Early Bird"', time: '3d ago' },
-              ].map((act, i) => (
-                <div key={i} className="flex gap-4 relative">
-                  {i !== 3 && <div className="absolute top-8 left-4 w-px h-8 bg-white/10" />}
-                  <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 shadow-lg", act.color)}>
-                    <act.icon className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1 flex items-center justify-between">
-                    <p className="text-xs text-gray-300">{act.text}</p>
-                    <span className="text-[10px] text-gray-500 whitespace-nowrap">{act.time}</span>
-                  </div>
+            <div className="p-5">
+              {recentActivity.length === 0 ? (
+                <div className="py-6 text-center space-y-2">
+                  <Clock className="w-7 h-7 text-gray-600 mx-auto" />
+                  <p className="text-xs font-semibold text-gray-300">No Recent Activity</p>
+                  <p className="text-[11px] text-gray-500">
+                    Your event registrations, mentor requests, and XP milestones will appear here.
+                  </p>
                 </div>
-              ))}
+              ) : (
+                <div className="space-y-3">
+                  {recentActivity.slice(0, 5).map((act: any, i: number) => (
+                    <div key={act.id || i} className="flex gap-3 items-center justify-between text-xs">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-6 h-6 rounded-lg bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center shrink-0">
+                          <Zap className="h-3 w-3" />
+                        </div>
+                        <span className="text-gray-300 truncate font-medium">{act.title || act.reason}</span>
+                      </div>
+                      {act.xpValue > 0 && (
+                        <span className="text-purple-400 font-bold shrink-0 text-[11px]">+{act.xpValue} XP</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
         </div>
 
         {/* COLUMN 3 */}
         <div className="space-y-6">
-          {/* Upcoming Mentor Sessions */}
+          {/* "My Mentoring" Card: Requests & Sessions */}
           <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
             <div className="flex items-center justify-between p-5 border-b border-white/10">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Zap className="h-4 w-4 text-fuchsia-500" /> Upcoming Mentor Sessions
+                <Users2 className="h-4 w-4 text-fuchsia-500" /> My Mentoring
               </h2>
-              <Link href="/mentors" className="text-xs font-medium text-fuchsia-400 hover:text-fuchsia-300">View All →</Link>
+              <Link href="/mentors/my-sessions" className="text-xs font-medium text-fuchsia-400 hover:text-fuchsia-300">
+                All Sessions ({upcomingSessions.length + mentoringRequests.length}) →
+              </Link>
             </div>
-            <div className="p-3 space-y-2">
-              {mentorBookings.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 text-xs">No upcoming sessions</div>
+            <div className="p-3 space-y-3">
+              {upcomingSessions.length === 0 && mentoringRequests.length === 0 ? (
+                <div className="py-8 text-center space-y-2 px-4">
+                  <Users2 className="w-8 h-8 text-blue-400/60 mx-auto" />
+                  <p className="text-xs font-semibold text-white">No Mentoring Bookings Yet</p>
+                  <p className="text-[11px] text-gray-400">
+                    Connect 1-on-1 with senior tech leads for architecture reviews, career guidance, and resume checks.
+                  </p>
+                  <Link
+                    href="/mentors"
+                    className="inline-block mt-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white text-xs font-semibold shadow-md transition-all"
+                  >
+                    Browse Mentors
+                  </Link>
+                </div>
               ) : (
-                mentorBookings.slice(0, 3).map((booking: any) => (
-                  <div onClick={() => toast.success(`Viewing session with ${booking.mentorName || booking.name}`)} key={booking.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all cursor-pointer">
-                    <Avatar name={booking.mentorName || booking.name} size="md" className="ring-2 ring-white/10" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white">{booking.mentorName || booking.name}</p>
-                      <p className="text-[11px] text-gray-400 truncate">Mentor Session</p>
-                      <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1"><Calendar className="h-3 w-3"/> {formatDate(booking.scheduledAt || new Date())}</p>
+                <>
+                  {/* Scheduled sessions first */}
+                  {upcomingSessions.slice(0, 2).map((session: any) => {
+                    const hasConfirmedMeet = session.conferenceStatus === 'confirmed' && Boolean(session.meetLink);
+                    return (
+                      <div key={session.id} className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/20 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Avatar name={session.mentorName || 'Mentor'} size="sm" className="ring-1 ring-purple-500/30 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white truncate">{session.mentorName}</p>
+                              <p className="text-[11px] text-gray-400 truncate">{session.topic}</p>
+                            </div>
+                          </div>
+                          <Badge variant="blue" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/30 shrink-0">
+                            Scheduled
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[11px]">
+                          <span className="text-gray-400 flex items-center gap-1 truncate">
+                            <Calendar className="h-3 w-3 text-purple-400 shrink-0" />
+                            <span className="truncate">{session.startAtUTC ? formatLocalDateTime(session.startAtUTC) : 'Scheduled'}</span>
+                          </span>
+
+                          {hasConfirmedMeet ? (
+                            <a
+                              href={session.meetLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-emerald-400 font-bold hover:underline shrink-0 flex items-center gap-1"
+                            >
+                              <Video className="w-3 h-3" /> Join Meet →
+                            </a>
+                          ) : (
+                            <span className="text-[10px] text-amber-400 font-medium shrink-0">
+                              Link Pending
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Active Requests */}
+                  {mentoringRequests.slice(0, 2).map((req: any) => (
+                    <div key={req.id} className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar name={req.mentorName || 'Mentor'} size="sm" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-white truncate">{req.mentorName}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{req.topic}</p>
+                          </div>
+                        </div>
+                        <Badge
+                          variant="default"
+                          className={cn(
+                            'text-[9px] shrink-0',
+                            req.status === 'accepted_awaiting_scheduling'
+                              ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                              : req.status === 'declined'
+                              ? 'text-rose-400 bg-rose-500/10 border-rose-500/30'
+                              : 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+                          )}
+                        >
+                          {req.status === 'accepted_awaiting_scheduling'
+                            ? 'Accepted'
+                            : req.status === 'declined'
+                            ? 'Declined'
+                            : 'Pending'}
+                        </Badge>
+                      </div>
                     </div>
-                    <Badge variant="default" className={cn("text-[10px]", booking.status === 'Confirmed' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-orange-400 bg-orange-500/10 border-orange-500/30')}>
-                      {booking.status || 'Pending'}
-                    </Badge>
-                  </div>
-                ))
+                  ))}
+                </>
               )}
             </div>
           </Card>
 
-          {/* AI Recommendations */}
-          <Card padding="none" className="border-border/40 bg-gradient-to-br from-[#0f172a] to-[#020617] overflow-hidden relative group">
-            <div className="absolute right-[-20%] top-0 w-64 h-full bg-[url('https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=600&auto=format&fit=crop')] bg-cover opacity-30 mix-blend-screen" />
-            <div className="relative z-10 p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-fuchsia-500" /> AI Recommendations
-                </h2>
-                <Badge className="bg-fuchsia-500 text-white text-[9px] border-none">New</Badge>
-              </div>
-              <p className="text-sm font-bold text-white mt-4">Personalized Roadmap for You</p>
-              <p className="text-xs text-gray-400 mt-2 max-w-[70%] leading-relaxed">
-                Based on your skills and interests, our AI recommends this path for your growth.
-              </p>
-              <Link href="/resources" className="inline-flex items-center justify-center mt-4 px-4 py-2 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white rounded-xl text-xs font-semibold shadow-[0_0_15px_rgba(217,70,239,0.4)]">
-                View Roadmaps →
-              </Link>
-            </div>
-          </Card>
-
-          {/* Quick Actions */}
+          {/* Quick Actions (No dead "#" links!) */}
           <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
             <div className="p-5 border-b border-white/10">
-              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Zap className="h-4 w-4 text-fuchsia-500" /> Quick Actions
-              </h2>
+              <h2 className="text-sm font-bold text-foreground">Quick Shortcuts</h2>
             </div>
-            <div className="p-5 flex justify-between gap-2">
+            <div className="p-4 grid grid-cols-3 gap-3 text-center">
               {[
-                { icon: Calendar, label: 'Browse Events', bg: 'bg-purple-500/20', color: 'text-purple-400', link: '/events' },
-                { icon: Users2, label: 'Book Mentor', bg: 'bg-blue-500/20', color: 'text-blue-400', link: '/mentors' },
-                { icon: FolderGit2, label: 'Explore Projects', bg: 'bg-orange-500/20', color: 'text-orange-400', link: '#' },
-                { icon: Users2, label: 'Join Community', bg: 'bg-emerald-500/20', color: 'text-emerald-400', link: '/community' },
-                { icon: MessageSquare, label: 'Start Chat', bg: 'bg-pink-500/20', color: 'text-pink-400', link: '#' },
+                { icon: Calendar, label: 'Events', bg: 'bg-purple-500/20', color: 'text-purple-400', link: '/events' },
+                { icon: Users2, label: 'Find Mentor', bg: 'bg-blue-500/20', color: 'text-blue-400', link: '/mentors' },
+                { icon: CalendarCheck, label: 'My Sessions', bg: 'bg-indigo-500/20', color: 'text-indigo-400', link: '/mentors/my-sessions' },
+                { icon: FolderGit2, label: 'Incubator', bg: 'bg-orange-500/20', color: 'text-orange-400', link: '/incubator' },
+                { icon: MessageSquare, label: 'Community', bg: 'bg-emerald-500/20', color: 'text-emerald-400', link: '/community' },
+                { icon: Sparkles, label: 'Career Prep', bg: 'bg-pink-500/20', color: 'text-pink-400', link: '/career' },
               ].map((act, i) => (
-                <Link href={act.link} onClick={(e) => { if (act.link === '#') { e.preventDefault(); toast.success('Coming soon!'); } }} key={i} className="flex flex-col items-center gap-2 cursor-pointer group">
-                  <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:-translate-y-1 shadow-lg", act.bg)}>
-                    <act.icon className={cn("h-5 w-5", act.color)} />
+                <Link href={act.link} key={i} className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/5 transition-all group">
+                  <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 shadow-md', act.bg)}>
+                    <act.icon className={cn('h-4 w-4', act.color)} />
                   </div>
-                  <span className="text-[9px] font-medium text-gray-400 text-center leading-tight w-14 group-hover:text-white transition-colors">{act.label}</span>
+                  <span className="text-[11px] font-medium text-gray-300 group-hover:text-white">{act.label}</span>
                 </Link>
               ))}
             </div>
           </Card>
 
-          {/* Refer & Earn Rewards */}
-          <Card padding="none" className="glass border-white/10 overflow-hidden relative shadow-xl hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
-            <div className="p-5 relative z-10 w-2/3">
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                Refer & Earn Rewards 🎁
-              </h2>
-              <p className="text-xs text-gray-400 mt-2 leading-relaxed">
-                Invite your friends and earn exclusive rewards and premium benefits.
-              </p>
-              <Button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/signup?ref=${user?.uid}`); toast.success('Referral link copied!') }} className="mt-4 bg-primary text-white border-none text-xs h-8">
-                Invite Now
-              </Button>
+          {/* Referral Card */}
+          <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl p-5 space-y-3 bg-gradient-to-br from-purple-950/30 to-fuchsia-950/20">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-white">Refer & Earn +50 XP</h3>
+                <p className="text-[10px] text-gray-400">Invite peers to build their dev network.</p>
+              </div>
             </div>
-            <div className="absolute right-4 bottom-4 w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-[0_0_30px_rgba(217,70,239,0.5)] rotate-12 flex items-center justify-center">
-              <span className="text-4xl">🎁</span>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={user ? `${typeof window !== 'undefined' ? window.location.origin : ''}/signup?ref=${user.uid}` : 'Sign in to get referral link'}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-[10px] text-gray-300 font-mono truncate focus:outline-none"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (user && typeof window !== 'undefined') {
+                    navigator.clipboard.writeText(`${window.location.origin}/signup?ref=${user.uid}`);
+                    toast.success('Referral link copied!');
+                  }
+                }}
+                disabled={!user}
+                className="text-[10px] px-2.5 py-1 shrink-0"
+              >
+                Copy
+              </Button>
             </div>
           </Card>
         </div>
-        
       </div>
     </div>
-  )
+  );
 }
