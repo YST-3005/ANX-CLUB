@@ -13,7 +13,11 @@ export async function getProjects(
     throw new Error('Simulated failure in Project Service');
   }
 
-  if (db && !mock) {
+  if (mock) {
+    return getProjectsByUserId(userId);
+  }
+
+  if (db) {
     try {
       const membersQuery = db.collection('projects')
         .where('members', 'array-contains', userId)
@@ -23,9 +27,15 @@ export async function getProjects(
         .where('userId', '==', userId)
         .get();
 
-      const [membersSnapshot, directSnapshot] = await Promise.all([
+      // Also query submitted ideas in product incubator as projects
+      const ideasQuery = db.collection('ideas')
+        .where('submitterId', '==', userId)
+        .get();
+
+      const [membersSnapshot, directSnapshot, ideasSnapshot] = await Promise.all([
         membersQuery,
-        directQuery
+        directQuery,
+        ideasQuery
       ]);
 
       const projectsMap = new Map<string, ProjectInfo>();
@@ -36,22 +46,23 @@ export async function getProjects(
           projectsMap.set(doc.id, {
             id: doc.id,
             title: data.title || '',
-            description: data.description || '',
-            status: data.status || '',
-            role: data.role || '',
+            description: data.description || data.problemStatement || '',
+            status: data.status || 'Active',
+            role: data.role || 'Author',
           });
         });
       };
 
       addDocs(membersSnapshot);
       addDocs(directSnapshot);
+      addDocs(ideasSnapshot);
 
       return Array.from(projectsMap.values());
     } catch (error) {
       logFirestoreFallback('Projects service', error);
+      return [];
     }
   }
 
-  // Fallback / Mock data from Data Layer
-  return getProjectsByUserId(userId);
+  return [];
 }

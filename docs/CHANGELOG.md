@@ -3,6 +3,26 @@ All notable changes to the A.N.X Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Phase 4] - 2026-10-30
+
+### Added
+- **Mentor Request Lifecycle & Scheduling Workflow:**
+  - Implemented `POST /api/v1/mentor/requests/[id]/accept` transitioning requests to `accepted_awaiting_scheduling` without premature meeting creation.
+  - Implemented `POST /api/v1/mentor/requests/[id]/decline` with optional feedback reason, dispatching notification and email.
+  - Implemented `POST /api/v1/mentor/requests/[id]/schedule` with strict validation (no past dates, 15–120 min duration range, UTC storage, and mentor interval conflict collision check preventing overlapping bookings with HTTP 409).
+- **Session Mutation Endpoints:**
+  - Implemented `POST /api/v1/mentor/sessions/[id]/reschedule` with conflict validation.
+  - Implemented `POST /api/v1/mentor/sessions/[id]/duration` adjusting duration limits.
+  - Implemented `POST /api/v1/mentor/sessions/[id]/cancel` with cancellation reason.
+  - Implemented `POST /api/v1/mentor/sessions/[id]/complete` awarding +75 XP idempotently via `awardMentorSessionXP` and incrementing mentor metrics.
+- **Mentor Dashboard Workspace:**
+  - Rebuilt `/mentor-dashboard` with high-level KPI metrics (Pending Requests, Upcoming Sessions, Completed Sessions, Total Students), "Next Session" spotlight, tabbed Requests Inbox, Upcoming/History sessions with full modal action suite (Accept, Decline, Schedule, Reschedule, Change Duration, Cancel, Complete).
+  - Rebuilt `/mentor-dashboard/profile` with bio, company, skills, topics tag editor, timezone dropdown, weekly availability hours editor, and Google Calendar connection card.
+- **Phase 4 Specification Documentation:**
+  - Generated comprehensive `docs/phase4.md` following the strict 16-section standard.
+
+---
+
 ## [Phase 3] - 2026-10-29
 
 ### Added

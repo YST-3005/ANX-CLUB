@@ -101,6 +101,55 @@ export async function GET(req: NextRequest) {
     const announcementsPromise = instrument('announcementService', getAnnouncements(resolvedUid, mock, failList.includes('announcements')));
     const projectsPromise = instrument('projectService', getProjects(resolvedUid, mock, failList.includes('projects')));
 
+    const communityCountPromise = instrument('communityCountService', (async () => {
+      if (!db || mock) return 0;
+      try {
+        const snap = await db.collection('communityTopics').where('authorId', '==', resolvedUid).get();
+        return snap.size;
+      } catch (e) {
+        return 0;
+      }
+    })());
+
+    const recentActivityPromise = instrument('recentActivityService', (async () => {
+      if (!db || mock) return [];
+      try {
+        const snap = await db.collection('xpLedger')
+          .where('userId', '==', resolvedUid)
+          .orderBy('createdAt', 'desc')
+          .limit(6)
+          .get();
+        return snap.docs.map(doc => {
+          const d = doc.data();
+          return {
+            id: doc.id,
+            actionType: d.actionType || 'general',
+            reason: d.reason || 'Activity recorded',
+            xpValue: d.xpValue || 0,
+            createdAt: d.createdAt ? (d.createdAt.toDate ? d.createdAt.toDate().toISOString() : d.createdAt) : new Date().toISOString()
+          };
+        });
+      } catch (e) {
+        return [];
+      }
+    })());
+
+    const roadmapProgressPromise = instrument('roadmapProgressService', (async () => {
+      if (!db || mock) return null;
+      try {
+        const snap = await db.collection('roadmapProgress')
+          .where('userId', '==', resolvedUid)
+          .limit(1)
+          .get();
+        if (!snap.empty) {
+          return { id: snap.docs[0].id, ...snap.docs[0].data() };
+        }
+        return null;
+      } catch (e) {
+        return null;
+      }
+    })());
+
     const [
       userRes,
       membershipRes,
@@ -108,7 +157,10 @@ export async function GET(req: NextRequest) {
       registeredEventsRes,
       mentorBookingsRes,
       announcementsRes,
-      projectsRes
+      projectsRes,
+      communityCountRes,
+      recentActivityRes,
+      roadmapProgressRes
     ] = await Promise.allSettled([
       userPromise,
       membershipPromise,
@@ -116,7 +168,10 @@ export async function GET(req: NextRequest) {
       registeredEventsPromise,
       mentorBookingsPromise,
       announcementsPromise,
-      projectsPromise
+      projectsPromise,
+      communityCountPromise,
+      recentActivityPromise,
+      roadmapProgressPromise
     ]);
 
     const getObjectValue = <T>(res: PromiseSettledResult<unknown>): T => {
@@ -133,8 +188,15 @@ export async function GET(req: NextRequest) {
       return [];
     };
 
+    const getNumberValue = (res: PromiseSettledResult<unknown>, fallback = 0): number => {
+      if (res.status === 'fulfilled' && typeof res.value === 'number') {
+        return res.value;
+      }
+      return fallback;
+    };
+
     // Construct response matching strict contract
-    const response: DashboardResponse = {
+    const response: DashboardResponse & { [key: string]: any } = {
       user: getObjectValue(userRes),
       membership: getObjectValue(membershipRes),
       upcomingEvents: getArrayValue(upcomingEventsRes),
@@ -143,6 +205,9 @@ export async function GET(req: NextRequest) {
       announcements: getArrayValue(announcementsRes),
       recommendations: getRecommendationsByUserId(resolvedUid),
       projects: getArrayValue(projectsRes),
+      communityPostsCount: getNumberValue(communityCountRes, 0),
+      recentActivity: getArrayValue(recentActivityRes),
+      roadmapProgress: roadmapProgressRes.status === 'fulfilled' ? roadmapProgressRes.value : null,
       meta: {
         version: 'v1',
         timestamp: new Date().toISOString(),

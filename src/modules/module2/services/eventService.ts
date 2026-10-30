@@ -12,10 +12,15 @@ export async function getUpcomingEvents(
     throw new Error('Simulated failure in Upcoming Events Service');
   }
 
-  if (db && !mock) {
+  if (mock) {
+    return getUpcomingEventsList();
+  }
+
+  if (db) {
     try {
+      const todayStr = new Date().toISOString().split('T')[0];
       const snapshot = await db.collection('events')
-        .where('date', '>=', new Date().toISOString())
+        .where('date', '>=', todayStr)
         .orderBy('date', 'asc')
         .limit(10)
         .get();
@@ -27,18 +32,18 @@ export async function getUpcomingEvents(
           id: doc.id,
           title: data.title || '',
           date: data.date || '',
-          location: data.location || '',
+          location: data.location || data.venue || '',
           description: data.description || '',
         });
       });
       return events;
     } catch (error) {
       logFirestoreFallback('Upcoming events service', error);
+      return [];
     }
   }
 
-  // Fallback / Mock data from Data Layer
-  return getUpcomingEventsList();
+  return [];
 }
 
 export async function getRegisteredEvents(
@@ -50,7 +55,11 @@ export async function getRegisteredEvents(
     throw new Error('Simulated failure in Registered Events Service');
   }
 
-  if (db && !mock) {
+  if (mock) {
+    return getRegisteredEventsByUserId(userId);
+  }
+
+  if (db) {
     try {
       const snapshot = await db.collection('eventRegistrations')
         .where('userId', '==', userId)
@@ -78,7 +87,7 @@ export async function getRegisteredEvents(
               id: doc.id,
               title: eventData.title || '',
               date: eventData.date || '',
-              location: eventData.location || '',
+              location: eventData.location || eventData.venue || '',
               description: eventData.description || '',
               registeredAt: eventIdToRegAt.get(doc.id) || '',
             });
@@ -87,11 +96,12 @@ export async function getRegisteredEvents(
           return events;
         }
       }
+      return [];
     } catch (error) {
       logFirestoreFallback('Registered events service', error);
+      return [];
     }
   }
 
-  // Fallback / Mock data from Data Layer
-  return getRegisteredEventsByUserId(userId);
+  return [];
 }

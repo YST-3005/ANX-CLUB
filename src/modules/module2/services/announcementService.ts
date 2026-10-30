@@ -13,7 +13,14 @@ export async function getAnnouncements(
     throw new Error('Simulated failure in Announcement Service');
   }
 
-  if (db && !mock) {
+  if (mock) {
+    if (userId) {
+      return getAnnouncementsByUserId(userId);
+    }
+    return getAnnouncementsByUserId('default_user_123');
+  }
+
+  if (db) {
     try {
       const announcements: Announcement[] = [];
       const seenIds = new Set<string>();
@@ -47,7 +54,7 @@ export async function getAnnouncements(
             id: doc.id,
             title: data.title || '',
             content: data.content || '',
-            publishedAt: data.publishedAt || '',
+            publishedAt: data.publishedAt || data.createdAt || '',
             priority: data.priority || 'medium',
           });
           seenIds.add(doc.id);
@@ -64,7 +71,7 @@ export async function getAnnouncements(
                 id: doc.id,
                 title: data.title || '',
                 content: data.content || '',
-                publishedAt: data.publishedAt || '',
+                publishedAt: data.publishedAt || data.createdAt || '',
                 priority: data.priority || 'medium',
               });
               seenIds.add(doc.id);
@@ -78,13 +85,9 @@ export async function getAnnouncements(
         .slice(0, 5);
     } catch (error) {
       logFirestoreFallback('Announcements service', error);
+      return [];
     }
   }
 
-  // Fallback / Mock data from Data Layer
-  if (userId) {
-    return getAnnouncementsByUserId(userId);
-  }
-
-  return getAnnouncementsByUserId('default_user_123');
+  return [];
 }
