@@ -10,7 +10,7 @@ import {
   Building, ChevronRight, Briefcase, Filter,
   CheckCircle2, AlertCircle, Info, ExternalLink,
 } from 'lucide-react';
-import { MOCK_MENTORS, SKILLS } from '@/lib/constants';
+import { SKILLS } from '@/lib/constants';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/modules/module3/components/AuthContext';
 import { mentorsApi } from '@/lib/api';
@@ -87,14 +87,14 @@ export default function MentorsPage() {
     const fetchMentors = async () => {
       try {
         const res = await mentorsApi.list();
-        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.data && Array.isArray(res.data)) {
           setMentors(res.data);
         } else {
-          setMentors(MOCK_MENTORS);
+          setMentors([]);
         }
       } catch (err) {
         console.error('Failed to fetch mentors', err);
-        setMentors(MOCK_MENTORS);
+        setMentors([]);
       } finally {
         setLoading(false);
       }
@@ -104,7 +104,7 @@ export default function MentorsPage() {
 
   // Filtered mentors list
   const filteredMentors = useMemo(() => {
-    const sourceList = mentors.length > 0 ? mentors : MOCK_MENTORS;
+    const sourceList = mentors;
     return sourceList.filter((men: any) => {
       const q = search.toLowerCase().trim();
       const matchesSearch =

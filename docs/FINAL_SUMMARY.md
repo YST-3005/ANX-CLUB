@@ -262,7 +262,7 @@ This pull request delivers an end-to-end overhaul of the Mentoring & Student Eco
 4. **Mentor Command Center:**
    - Rebuilt `/mentor-dashboard` with KPI cards, Next Session spotlight, Requests Inbox, and full modal action suite (Accept, Decline, Schedule, Reschedule, Duration, Cancel, Complete).
    - Rebuilt `/mentor-dashboard/profile` with tag-based skill/topic editors, timezone picker, availability hours, and Google integration card.
-   - Completed session awards +75 XP idempotently via `awardMentorSessionXP`.
+   - Completed session awards +75 XP to the student member idempotently via `awardMentorSessionXP` (mentor's completed sessions count is incremented).
 5. **Real Google Calendar & Meet Integration:**
    - Built separate OAuth 2.0 flow under `/api/v1/google/*`.
    - Server-side AES-256-GCM encryption of refresh tokens stored in `mentorGoogleTokens` (never exposed to clients).
@@ -278,5 +278,29 @@ This pull request delivers an end-to-end overhaul of the Mentoring & Student Eco
 ### Verification:
 - All 31 Jest tests passing (`npm test`).
 - TypeScript verified with 0 errors (`tsc --noEmit`).
+- ESLint verified with 0 errors (`npm run lint`).
+- Next.js production build verified with 0 errors (`npm run build`).
 - Zero mock/fake data on assigned modules.
+- Zero fake Meet/Jitsi link generators remaining.
+- Admin routes and cron endpoints secured against unauthenticated access.
+- Firestore rules lock out client access to `mentorGoogleTokens` (`allow read, write: if false;`).
 ```
+
+---
+
+## 7. Phase 9 QA Remediation Addendum
+
+Following the skeptical verification pass in `docs/VERIFICATION_REPORT.md`, the following minimal remediations were applied:
+
+1. **Secured Admin Mentor-Requests Route:** Added `getAuthenticatedUser(request)` check enforcing authentication (401) and Admin role (403). Added `export const dynamic = 'force-dynamic'`. Fixed `prefer-const` ESLint warning.
+2. **Enforced CRON_SECRET on Session Reminders:** Endpoint now returns 401 whenever `CRON_SECRET` is unset or request authorization doesn't match.
+3. **Purged Remaining Fake Links:**
+   - Removed Jitsi URL generator in `src/modules/module3/app/api/admin/mentor-requests/[id]/route.ts`.
+   - Removed fake Meet strings (`anx-mentor-session` and `anx-${b.id}`) in `src/app/(admin)/admin/submissions/page.tsx`.
+   - Removed default `anx-masterclass` link in `src/app/api/v1/events/route.ts`.
+4. **Clean Mentors Directory Empty State:** Removed `MOCK_MENTORS` fallback in `src/app/(dashboard)/mentors/page.tsx` so the verified empty state renders when no mentors are in Firestore.
+5. **No Duplicate Calendar Events on Retry:** In `src/lib/google-calendar.ts`, `createGoogleCalendarEvent` now checks `payload.googleEventId`; if present, executes `calendar.events.patch` instead of `insert`.
+6. **Code Quality Cleanups:** Fixed ESLint `prefer-const` in `src/app/api/v1/mentors/[id]/book/route.ts` and added dynamic export to `src/app/api/v1/google/status/route.ts`.
+7. **Client Lockout for Google Tokens:** Set `match /mentorGoogleTokens/{mentorId} { allow read, write: if false; }` in `firestore.rules`.
+8. **XP Award Architecture Clarified:** Confirmed by sir that only the student member earns +75 XP upon session completion. Documented that `awardMentorSessionXP` rewards the student member with +75 XP and leadership progression, while the mentor receives an increment to `sessionsCompleted` in `mentors`.
+

@@ -72,7 +72,7 @@ export default function AdminSubmissionsPage() {
   }>({
     isOpen: false,
     booking: null,
-    link: 'https://meet.google.com/anx-mentor-session'
+    link: ''
   })
 
   // Document preview modal state
@@ -755,7 +755,7 @@ export default function AdminSubmissionsPage() {
                             onClick={() => setMeetingModal({
                               isOpen: true,
                               booking: b,
-                              link: b.meetingLink || `https://meet.google.com/anx-${b.id}`
+                              link: b.meetingLink || ''
                             })}
                             className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-xs transition-colors flex items-center gap-1"
                           >

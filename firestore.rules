@@ -81,6 +81,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /mentorGoogleTokens/{mentorId} {
+      allow read, write: if false;
+    }
+
     match /mentoringSessions/{sessionId} {
       allow read: if isAuthenticated() && (
         resource.data.studentId == request.auth.uid ||

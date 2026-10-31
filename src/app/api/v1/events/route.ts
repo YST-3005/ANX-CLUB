@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     const capacity = Number(body.capacity || body.seatsAvailable || 100);
     const seatsAvailable = capacity;
     const posterUrl = body.posterUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1000&auto=format&fit=crop";
-    const onlineLink = body.meetingLink?.trim() || body.onlineLink?.trim() || (isOnline ? "https://meet.google.com/anx-masterclass" : "");
+    const onlineLink = body.meetingLink?.trim() || body.onlineLink?.trim() || null;
 
     const eventData = {
       title,

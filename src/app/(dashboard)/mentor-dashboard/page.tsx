@@ -467,7 +467,7 @@ export default function MentorDashboardPage() {
           {
             label: 'Sessions Completed',
             value: (stats.completedSessionsCount || 0).toString(),
-            sub: '+75 XP awarded per completed session',
+            sub: 'Student earns +75 XP per session',
             icon: CheckCircle2,
             color: 'text-emerald-400',
             bg: 'bg-emerald-500/10',
@@ -560,7 +560,7 @@ export default function MentorDashboardPage() {
                 onClick={() => setCompletingSession(todayNextSession)}
                 className="text-xs border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
               >
-                Mark Complete (+75 XP)
+                Mark Complete
               </Button>
             </div>
           </div>
@@ -858,7 +858,7 @@ export default function MentorDashboardPage() {
                             onClick={() => setCompletingSession(session)}
                             className="text-xs bg-purple-600 hover:bg-purple-500"
                           >
-                            Mark Complete (+75 XP)
+                            Mark Complete
                           </Button>
                         </div>
                       </div>
@@ -899,7 +899,7 @@ export default function MentorDashboardPage() {
                                     : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                                 }`}
                               >
-                                {isCompleted ? 'Completed (+75 XP)' : 'Cancelled'}
+                                {isCompleted ? 'Completed (Student +75 XP)' : 'Cancelled'}
                               </Badge>
                             </div>
                             <p className="text-[11px] text-gray-400">{session.topic}</p>
@@ -1338,7 +1338,7 @@ export default function MentorDashboardPage() {
                   <span className="font-medium text-white">{completingSession.topic}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">XP Award:</span>
+                  <span className="text-gray-400">XP Awarded (Student):</span>
                   <span className="font-bold text-purple-400">+75 XP</span>
                 </div>
               </div>
@@ -1354,7 +1354,7 @@ export default function MentorDashboardPage() {
                   disabled={actionLoading}
                   className="text-xs bg-purple-600 hover:bg-purple-500"
                 >
-                  {actionLoading ? 'Completing...' : 'Mark Complete & Award +75 XP'}
+                  {actionLoading ? 'Completing...' : 'Mark Complete'}
                 </Button>
               </div>
             </motion.div>

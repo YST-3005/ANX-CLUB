@@ -39,7 +39,7 @@ stateDiagram-v2
     PendingRequest --> AcceptedAwaitingScheduling: Mentor accepts request
     AcceptedAwaitingScheduling --> Scheduled: Mentor chooses date/time/duration in Phase 4
     Scheduled --> Rescheduled: Mentor updates slot
-    Scheduled --> Completed: Mentor marks complete (+75 XP awarded)
+    Scheduled --> Completed: Mentor marks complete (Student +75 XP awarded)
     Scheduled --> Cancelled: Cancelled by Student or Mentor
 ```
 

@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
+import { adminDb, adminAuth } from '@/lib/firebase/admin';
 import { authenticate } from '@/lib/auth';
 import { sendEmail } from '@/lib/resend';
 import { mentorBookingRequestEmail } from '@/lib/email-templates';
@@ -19,31 +19,57 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const body = await request.json().catch(() => ({}));
 
-    // Fetch verified student profile from Firestore
-    const userDoc = await adminDb.collection('users').doc(userId).get();
-    const userData = userDoc.data() || {};
-    const studentEmail = (userData.email || body.userEmail || body.email || '').toLowerCase().trim();
-    const studentName = userData.fullName || userData.displayName || body.userName || 'Student Member';
+    // Fetch verified student profile from Firestore with fallback to Firebase Auth
+    let studentEmail = (body.userEmail || body.email || '').toLowerCase().trim();
+    let studentName = body.userName || 'Student Member';
+
+    try {
+      const userDoc = await adminDb.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data() || {};
+        studentEmail = (userData.email || studentEmail).toLowerCase().trim();
+        studentName = userData.fullName || userData.displayName || studentName;
+      }
+    } catch (userErr: any) {
+      console.warn(`[POST /api/v1/mentors/[id]/book] Firestore user lookup notice: ${userErr?.message || userErr}`);
+    }
+
+    if (!studentEmail || studentName === 'Student Member') {
+      try {
+        const authRecord = await adminAuth.getUser(userId);
+        if (authRecord) {
+          studentEmail = (authRecord.email || studentEmail).toLowerCase().trim();
+          studentName = authRecord.displayName || (studentEmail ? studentEmail.split('@')[0] : studentName);
+        }
+      } catch (authErr) {
+        // Fallback for mock/test users
+      }
+    }
 
     // Fetch mentor details to ensure accurate mentorId, mentorName, and mentorEmail
-    let mentorDoc = await adminDb.collection('mentors').doc(params.id).get();
-    let mentorData = mentorDoc.exists ? mentorDoc.data() : null;
     let mentorId = params.id;
     let mentorEmail = '';
     let mentorName = body.mentorName || 'Expert Mentor';
 
-    if (mentorData) {
-      mentorName = mentorData.name || mentorName;
-      mentorEmail = mentorData.ownerEmail || mentorData.email || '';
-      mentorId = mentorData.uid || mentorData.id || params.id;
-    } else {
-      // Check if params.id was a user ID
-      const mentorUserDoc = await adminDb.collection('users').doc(params.id).get();
-      if (mentorUserDoc.exists) {
-        const u = mentorUserDoc.data() || {};
-        mentorName = u.fullName || mentorName;
-        mentorEmail = u.email || '';
+    try {
+      const mentorDoc = await adminDb.collection('mentors').doc(params.id).get();
+      const mentorData = mentorDoc.exists ? mentorDoc.data() : null;
+
+      if (mentorData) {
+        mentorName = mentorData.name || mentorName;
+        mentorEmail = mentorData.ownerEmail || mentorData.email || '';
+        mentorId = mentorData.uid || mentorData.id || params.id;
+      } else {
+        // Check if params.id was a user ID
+        const mentorUserDoc = await adminDb.collection('users').doc(params.id).get();
+        if (mentorUserDoc.exists) {
+          const u = mentorUserDoc.data() || {};
+          mentorName = u.fullName || mentorName;
+          mentorEmail = u.email || '';
+        }
       }
+    } catch (mentorErr: any) {
+      console.warn(`[POST /api/v1/mentors/[id]/book] Mentor lookup notice: ${mentorErr?.message || mentorErr}`);
     }
 
     const topic = body.topic || body.reason || body.message || '1-on-1 Mentorship Session';
@@ -99,8 +125,23 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       memberEmail: studentEmail,
     };
 
-    const docRef = await adminDb.collection('mentorRequests').add(requestData);
-    const docId = docRef.id;
+    let docId: string;
+    try {
+      const docRef = await adminDb.collection('mentorRequests').add(requestData);
+      docId = docRef.id;
+    } catch (writeErr: any) {
+      console.error('[POST /api/v1/mentors/[id]/book] Firestore write failed:', writeErr);
+      const isDbMissing = writeErr?.code === 5 || writeErr?.code === '5' || writeErr?.message?.includes('does not exist');
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: isDbMissing ? 'DATABASE_NOT_INITIALIZED' : 'INTERNAL_ERROR',
+          message: isDbMissing
+            ? "Cloud Firestore database '(default)' is not initialized or does not exist in project 'anx-club'. Please create the (default) Firestore Native database in Firebase Console."
+            : writeErr?.message || 'Error submitting mentoring request'
+        }
+      }, { status: isDbMissing ? 503 : 500 });
+    }
 
     // Award +40 XP for submitting a booking request
     let xpAwarded = 40;

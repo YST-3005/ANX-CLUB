@@ -24,6 +24,7 @@ export async function POST(
 
     const googleResult = await createGoogleCalendarEvent({
       sessionId: session.id,
+      googleEventId: session.googleEventId || undefined,
       mentorUid: user.uid,
       mentorEmail: session.mentorEmail || user.email,
       studentEmail: session.studentEmail,

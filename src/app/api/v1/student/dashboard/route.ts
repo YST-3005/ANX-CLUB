@@ -13,8 +13,15 @@ export async function GET(req: NextRequest) {
     const userId = user.uid;
 
     // 1. Fetch live user profile
-    const userDoc = await adminDb.collection('users').doc(userId).get();
-    const userData = userDoc.data() || {};
+    let userData: any = {};
+    try {
+      const userDoc = await adminDb.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        userData = userDoc.data() || {};
+      }
+    } catch (e) {
+      console.warn('[student/dashboard] Could not fetch user doc:', e);
+    }
     const xpTotal = userData.xpTotal || 0;
     const leadershipStage = userData.leadershipStage || (xpTotal > 3000 ? 'Legendary' : xpTotal > 2000 ? 'Master' : xpTotal > 1000 ? 'Elite' : xpTotal > 500 ? 'Rising Star' : 'Member');
 

@@ -16,9 +16,14 @@ export async function GET(request: NextRequest) {
 
     // 1. Fetch or initialize mentor profile
     let mentorProfile: MentorProfile;
-    const mentorDocSnap = await adminDb.collection('mentors').doc(mentorDocId).get();
+    let mentorDocSnap: any = null;
+    try {
+      mentorDocSnap = await adminDb.collection('mentors').doc(mentorDocId).get();
+    } catch (docErr) {
+      console.warn('[mentor/dashboard] Could not fetch mentor profile:', docErr);
+    }
     
-    if (mentorDocSnap.exists) {
+    if (mentorDocSnap && mentorDocSnap.exists) {
       const d = mentorDocSnap.data() || {};
       mentorProfile = {
         id: mentorDocSnap.id,

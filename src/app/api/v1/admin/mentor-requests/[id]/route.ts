@@ -2,12 +2,29 @@ import { NextResponse, NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { sendEmail } from '@/lib/resend';
 import { mentorBookingApprovalEmail, generateICS } from '@/lib/email-templates';
+import { getAuthenticatedUser } from '@/lib/mentoring-auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
+        { status: 401 }
+      );
+    }
+    if (!user.isOfficialAdmin && user.role !== 'Admin') {
+      return NextResponse.json(
+        { success: false, error: { code: 'FORBIDDEN', message: 'Admin role required' } },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { status } = body;
 
@@ -26,7 +43,7 @@ export async function PATCH(
     }
 
     const requestData = docSnap.data()!;
-    let meetingLink = requestData.meetingLink || null;
+    const meetingLink = requestData.meetingLink || null;
 
     await docRef.update({ 
       status,

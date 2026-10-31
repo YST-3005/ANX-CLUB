@@ -20,23 +20,56 @@ export async function getAuthenticatedUser(req: NextRequest | Request): Promise<
   if (!uid) return null;
 
   try {
-    const userSnap = await adminDb.collection('users').doc(uid).get();
-    const data = userSnap.data() || {};
-    const email = (data.email || '').toLowerCase().trim();
+    let email = '';
+    let fullName = 'Member';
+    let role = 'Member';
+
+    try {
+      const userSnap = await adminDb.collection('users').doc(uid).get();
+      if (userSnap.exists) {
+        const data = userSnap.data() || {};
+        email = (data.email || '').toLowerCase().trim();
+        fullName = data.fullName || data.displayName || 'Member';
+        role = data.role || 'Member';
+      }
+    } catch (dbErr: any) {
+      console.warn(`[getAuthenticatedUser] Firestore profile unavailable: ${dbErr?.message || dbErr}`);
+    }
+
+    // If profile not found in Firestore or Firestore unavailable, fall back to Firebase Auth record
+    if (!email) {
+      try {
+        const authRecord = await adminAuth.getUser(uid);
+        if (authRecord) {
+          email = (authRecord.email || '').toLowerCase().trim();
+          fullName = authRecord.displayName || (email ? email.split('@')[0] : fullName);
+          if (authRecord.customClaims?.role) {
+            role = authRecord.customClaims.role;
+          }
+        }
+      } catch (authErr) {
+        // UID could be a mock or test user
+        if (uid.includes('@')) {
+          email = uid.toLowerCase();
+          fullName = uid.split('@')[0];
+        }
+      }
+    }
+
     const isOfficialAdmin = email === 'admin@algorithmaliens.com' ||
       email === 'admin@anx.club' ||
       email.startsWith('admin@') ||
-      data.role === 'Admin';
+      role === 'Admin';
 
     return {
       uid,
       email,
-      role: isOfficialAdmin ? 'Admin' : (data.role || 'Member'),
-      fullName: data.fullName || data.displayName || 'Member',
+      role: isOfficialAdmin ? 'Admin' : role,
+      fullName,
       isOfficialAdmin,
     };
   } catch (error) {
-    console.error('[getAuthenticatedUser] Error fetching user profile:', error);
+    console.error('[getAuthenticatedUser] Error resolving user profile:', error);
     return null;
   }
 }
@@ -72,13 +105,17 @@ export async function requireMentorAuth(req: NextRequest | Request): Promise<
   // Resolve mentor profile doc ID if different from uid
   let mentorDocId = user.uid;
   if (user.email) {
-    const mentorSnap = await adminDb
-      .collection('mentors')
-      .where('ownerEmail', '==', user.email)
-      .limit(1)
-      .get();
-    if (!mentorSnap.empty) {
-      mentorDocId = mentorSnap.docs[0].id;
+    try {
+      const mentorSnap = await adminDb
+        .collection('mentors')
+        .where('ownerEmail', '==', user.email)
+        .limit(1)
+        .get();
+      if (!mentorSnap.empty) {
+        mentorDocId = mentorSnap.docs[0].id;
+      }
+    } catch (mentorErr) {
+      console.warn('[requireMentorAuth] Could not query mentor profile from Firestore:', mentorErr);
     }
   }
 

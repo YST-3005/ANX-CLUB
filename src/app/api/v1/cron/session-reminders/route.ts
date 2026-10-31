@@ -11,19 +11,21 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(req: NextRequest) {
   try {
-    // 1. Authorization check
+    // 1. Authorization check: Return 401 if CRON_SECRET is unset OR the header doesn't match
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = req.headers.get('authorization') || req.headers.get('x-cron-secret');
 
-    if (cronSecret) {
-      const isAuthorized =
-        authHeader === `Bearer ${cronSecret}` ||
-        authHeader === cronSecret ||
-        req.nextUrl.searchParams.get('secret') === cronSecret;
+    if (!cronSecret) {
+      return NextResponse.json({ error: 'Unauthorized: CRON_SECRET is not configured' }, { status: 401 });
+    }
 
-      if (!isAuthorized) {
-        return NextResponse.json({ error: 'Unauthorized: Invalid CRON_SECRET' }, { status: 401 });
-      }
+    const isAuthorized =
+      authHeader === `Bearer ${cronSecret}` ||
+      authHeader === cronSecret ||
+      req.nextUrl.searchParams.get('secret') === cronSecret;
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized: Invalid CRON_SECRET' }, { status: 401 });
     }
 
     if (!adminDb) {

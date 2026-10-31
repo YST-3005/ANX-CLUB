@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { requireMentorAuth } from '@/lib/mentoring-auth';
 import { isGoogleConfigured } from '@/lib/google-auth';
 import { adminDb } from '@/lib/firebase/admin';

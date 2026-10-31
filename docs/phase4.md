@@ -39,7 +39,7 @@ stateDiagram-v2
     AcceptedAwaitingScheduling --> Scheduled: POST /api/v1/mentor/requests/[id]/schedule
     Scheduled --> Rescheduled: PATCH /api/v1/mentor/sessions/[id]/reschedule
     Scheduled --> Cancelled: POST /api/v1/mentor/sessions/[id]/cancel
-    Scheduled --> Completed: POST /api/v1/mentor/sessions/[id]/complete (+75 XP)
+    Scheduled --> Completed: POST /api/v1/mentor/sessions/[id]/complete (Student +75 XP)
 ```
 
 ### 3.2 Key Capabilities

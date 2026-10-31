@@ -3,6 +3,8 @@ import { adminDb as db } from '@/lib/firebase/admin';
 import { sendEmail } from '@/lib/resend';
 import { mentorBookingApprovalEmail, generateICS } from '@/lib/email-templates';
 
+export const dynamic = 'force-dynamic';
+
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
     const body = await request.json();
@@ -20,11 +22,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
 
     const requestData = docSnap.data() || {};
-
-    let meetingLink = requestData.meetingLink;
-    if (status === 'Approved' && !meetingLink) {
-      meetingLink = `https://meet.jit.si/Mentorship-${params.id}-${Math.random().toString(36).substring(7)}`;
-    }
+    const meetingLink = requestData.meetingLink || null;
 
     await docRef.update({ 
       status,
@@ -36,7 +34,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       const emailStatus = status.toLowerCase() as 'approved' | 'rejected';
       
       const attachments = [];
-      if (status === 'Approved') {
+      if (status === 'Approved' && meetingLink) {
         const icsContent = generateICS(requestData.mentorName, requestData.preferredDate, requestData.preferredTime, requestData.topic, meetingLink);
         attachments.push({
           filename: 'invite.ics',
@@ -58,7 +56,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       await sendEmail(
         requestData.memberEmail, 
         `Mentor Session ${status}`, 
-        mentorBookingApprovalEmail(requestData.mentorName, requestData.preferredDate, emailStatus, meetingLink),
+        mentorBookingApprovalEmail(requestData.mentorName, requestData.preferredDate, emailStatus, meetingLink || undefined),
         attachments
       );
     }

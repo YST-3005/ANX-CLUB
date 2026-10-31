@@ -12,6 +12,7 @@ export interface CalendarEventPayload {
   notes?: string;
   startAtUTC: string;
   durationMin: number;
+  googleEventId?: string;
 }
 
 export interface CalendarOperationResult {
@@ -92,13 +93,20 @@ export async function createGoogleCalendarEvent(
   };
 
   try {
-    const insertRes = await calendar.events.insert({
-      calendarId: 'primary',
-      conferenceDataVersion: 1,
-      requestBody: eventRequestBody,
-    });
+    const apiRes = payload.googleEventId
+      ? await calendar.events.patch({
+          calendarId: 'primary',
+          eventId: payload.googleEventId,
+          conferenceDataVersion: 1,
+          requestBody: eventRequestBody,
+        })
+      : await calendar.events.insert({
+          calendarId: 'primary',
+          conferenceDataVersion: 1,
+          requestBody: eventRequestBody,
+        });
 
-    let event = insertRes.data;
+    let event = apiRes.data;
     const googleEventId = event.id || null;
 
     // Polling loop if conferenceData creation is still in pending status
