@@ -26,20 +26,31 @@ export async function POST(request: Request) {
     }
 
     const data = otpDoc.data();
-    
-    if (data?.otp !== otp) {
-      return NextResponse.json({ error: 'Incorrect OTP' }, { status: 400 });
-    }
-
     const now = new Date();
-    if (data?.expiresAt.toDate() < now) {
-      // OTP expired
+    const expiresAt = data?.expiresAt?.toDate ? data.expiresAt.toDate() : new Date(data?.expiresAt || 0);
+
+    if (expiresAt < now) {
       await otpDocRef.delete();
       return NextResponse.json({ error: 'OTP has expired' }, { status: 400 });
     }
 
-    // OTP is valid
-    // Delete it so it can't be used again
+    if (data?.otp !== otp) {
+      const attempts = (data?.attempts || 0) + 1;
+      if (attempts >= 5) {
+        await otpDocRef.delete();
+        return NextResponse.json(
+          { error: 'Too many failed attempts. This OTP has been invalidated for security. Please request a new code.' },
+          { status: 429 }
+        );
+      }
+      await otpDocRef.update({ attempts });
+      return NextResponse.json(
+        { error: `Incorrect OTP. ${5 - attempts} attempt(s) remaining.` },
+        { status: 400 }
+      );
+    }
+
+    // OTP is valid - delete it so it cannot be replayed
     await otpDocRef.delete();
 
     return NextResponse.json({ success: true, message: 'OTP verified successfully' });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb as db } from '@/lib/firebase/admin';
+import { requireAuth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,12 +26,21 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { title, description, date, type, seats, speaker, price, premiumPrice, memberOnly, organizerId } = body;
+    const authResult = await requireAuth(request);
+    if ('response' in authResult) {
+      return authResult.response;
+    }
+    const { user } = authResult;
 
-    if (!title || !description || !date || !type || !seats || !organizerId) {
+    const body = await request.json();
+    const { title, description, date, type, seats, speaker, price, premiumPrice, memberOnly } = body;
+
+    if (!title || !description || !date || !type || !seats) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    const isAdmin = user.role.toLowerCase() === 'admin';
+    const organizerId = user.uid;
 
     const eventData = {
       title,
@@ -38,13 +48,13 @@ export async function POST(request: Request) {
       date,
       type,
       seats: Number(seats),
-      speaker,
-      price: Number(price),
-      premiumPrice: Number(premiumPrice),
-      memberOnly,
+      speaker: speaker || user.email || 'Community Member',
+      price: Number(price) || 0,
+      premiumPrice: Number(premiumPrice) || 0,
+      memberOnly: Boolean(memberOnly),
       organizerId,
       registeredCount: 0,
-      status: 'Approved', // Auto-publish community events
+      status: isAdmin ? 'Approved' : 'Pending', // Only admins can auto-publish
       createdAt: new Date().toISOString()
     };
 

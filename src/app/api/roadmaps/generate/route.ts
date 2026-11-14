@@ -1,23 +1,20 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { authenticate } from '@/lib/auth';
+import { authenticateUser } from '@/lib/auth';
 import * as admin from 'firebase-admin';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const userId = await authenticate(request);
-    if (!userId) {
+    const user = await authenticateUser(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized: Please log in' }, { status: 401 });
     }
 
-    const userDoc = await adminDb.collection('users').doc(userId).get();
-    const userData = userDoc.data();
-    const isPremium = userData?.membershipType === 'premium' || 
-                      userData?.role === 'Premium Member' || 
-                      userData?.role === 'Admin' ||
-                      userData?.email === 'admin@algorithmaliens.com';
+    const isPremium = user.membershipType === 'premium' || 
+                      user.role.toLowerCase() === 'admin' ||
+                      user.role.toLowerCase() === 'premium member';
 
     if (!isPremium) {
       return NextResponse.json({ 
@@ -179,7 +176,7 @@ Return ONLY a valid JSON object matching this exact TypeScript structure:
       steps: generatedRoadmap.steps,
       isPremium: true,
       isAiGenerated: true,
-      createdBy: userId,
+      createdBy: user.uid,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };

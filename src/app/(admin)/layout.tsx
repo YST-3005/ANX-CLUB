@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Sparkles, ShieldCheck, LayoutDashboard, Users, 
   Calendar, Bell, LineChart, LogOut, Menu, X, ArrowLeft,
-  ChevronRight, Award, FileText, KeyRound
+  ChevronRight, Award, FileText, KeyRound, UserCheck
 } from 'lucide-react'
 import { MOCK_USER } from '@/lib/constants'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -18,6 +18,7 @@ const adminItems = [
   { label: 'Overview', href: '/admin', icon: LayoutDashboard },
   { label: 'User Submissions', href: '/admin/submissions', icon: FileText },
   { label: 'Manage Members', href: '/admin/members', icon: Users },
+  { label: 'Manage Mentors', href: '/admin/mentors', icon: UserCheck },
   { label: 'Manage Events', href: '/admin/events', icon: Calendar },
   { label: 'Manage Roadmaps', href: '/admin/roadmaps', icon: Award },
   { label: 'System Analytics', href: '/admin/analytics', icon: LineChart },
@@ -29,26 +30,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const router = useRouter()
   const { user, profile, loading, logout } = useAuth()
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(() => {
-    if (typeof window !== 'undefined') {
-      const adminMode = localStorage.getItem('anx_admin_mode') === 'true'
-      const savedProfileStr = localStorage.getItem('anx_auth_profile')
-      const savedUserStr = localStorage.getItem('anx_auth_user')
-      if (adminMode && (savedProfileStr || savedUserStr)) {
-        try {
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    // 1. Check saved session on client mount (immediate access if previously authenticated)
+    try {
+      if (typeof window !== 'undefined') {
+        const adminMode = localStorage.getItem('anx_admin_mode') === 'true'
+        const savedProfileStr = localStorage.getItem('anx_auth_profile')
+        const savedUserStr = localStorage.getItem('anx_auth_user')
+        if (adminMode && (savedProfileStr || savedUserStr)) {
           const p = savedProfileStr ? JSON.parse(savedProfileStr) : null
           const u = savedUserStr ? JSON.parse(savedUserStr) : null
           const uEmail = (u?.email || p?.email || '').toLowerCase().trim()
           if (p?.role === 'Admin' || isOfficialAdminEmail(uEmail)) {
-            return true
+            setIsAuthorized(true)
+            return
           }
-        } catch (e) {}
+        }
       }
+    } catch (e) {
+      console.warn('Error reading initial saved session:', e)
     }
-    return null
-  })
 
-  useEffect(() => {
     if (loading) return
 
     const email = (user?.email || profile?.email || '').toLowerCase().trim()
@@ -59,7 +63,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return
     }
 
-    // Check localStorage session
+    // Check localStorage session fallback when auth finishes loading
     try {
       if (typeof window !== 'undefined') {
         const savedUserStr = localStorage.getItem('anx_auth_user')

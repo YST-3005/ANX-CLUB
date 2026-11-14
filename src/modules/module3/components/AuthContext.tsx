@@ -78,10 +78,16 @@ const ensureUserWithToken = (userObj: any) => {
   if (!userObj) return null;
   if (typeof userObj.getIdToken !== 'function') {
     userObj.getIdToken = async () => {
-      if (typeof window !== 'undefined') {
-        return localStorage.getItem('anx_token') || `session_${userObj.uid}_${Date.now()}`;
+      if (auth.currentUser) {
+        return auth.currentUser.getIdToken();
       }
-      return `session_${userObj.uid}`;
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('anx_token');
+        if (token && !token.startsWith('session_') && !token.startsWith('mock_')) {
+          return token;
+        }
+      }
+      return '';
     };
   }
   return userObj;
@@ -128,17 +134,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error("Error fetching token:", err);
           }
 
-          const emailLower = (currentUser.email || '').toLowerCase().trim();
-          const isOfficialAdmin = emailLower === 'admin@algorithmaliens.com' || 
-                                  emailLower === 'admin@anx.club' || 
-                                  emailLower.startsWith('admin@');
-
           const fallbackProfile: UserProfile = {
             uid: currentUser.uid,
             email: currentUser.email || 'member@anx.club',
-            fullName: currentUser.displayName || (isOfficialAdmin ? 'System Administrator' : currentUser.email?.split('@')[0] || 'Club Member'),
-            role: isOfficialAdmin ? 'Admin' : 'Member',
-            membershipType: isOfficialAdmin ? 'premium' : 'Free',
+            fullName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Club Member',
+            role: 'Member',
+            membershipType: 'Free',
             joinedDate: new Date().toISOString(),
           };
 
@@ -147,16 +148,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           unsubscribeProfile = onSnapshot(docRef, async (docSnap) => {
             if (docSnap.exists()) {
               const data = docSnap.data() as UserProfile;
-              if (isOfficialAdmin || data.role === 'Admin') {
-                data.role = 'Admin';
-                data.membershipType = 'premium';
-              } else {
-                if (data.role !== 'Premium Member') {
-                  data.role = 'Member';
-                }
-              }
               // Check membership expiry
-              if (data.membershipExpiry && new Date() > new Date(data.membershipExpiry) && data.role !== 'Admin') {
+              if (data.membershipExpiry && new Date() > new Date(data.membershipExpiry)) {
                 data.membershipType = 'Free';
                 if (data.role === 'Premium Member') {
                   data.role = 'Member';
@@ -220,8 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, pass: string): Promise<any> => {
-    const trimmedEmail = normalizeAdminEmail(email);
-    const isAdminEmail = isOfficialAdminEmail(trimmedEmail);
+    const trimmedEmail = email.trim().toLowerCase();
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, pass);
@@ -230,29 +222,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       document.cookie = `session=${token}; path=/; max-age=2592000; SameSite=Lax`;
       document.cookie = `__session=${token}; path=/; max-age=2592000; SameSite=Lax`;
 
-      if (isAdminEmail) {
-        localStorage.setItem('anx_admin_mode', 'true');
-        document.cookie = `anx_admin=true; path=/; max-age=2592000; SameSite=Lax`;
-      } else {
-        localStorage.removeItem('anx_admin_mode');
-        document.cookie = 'anx_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax';
-      }
-
       const userObj = {
         uid: userCredential.user.uid,
         email: userCredential.user.email,
-        displayName: userCredential.user.displayName || (isAdminEmail ? 'System Administrator' : trimmedEmail.split('@')[0]),
+        displayName: userCredential.user.displayName || trimmedEmail.split('@')[0],
       };
       setUser(ensureUserWithToken(userObj));
       localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(userObj));
 
-      // Attempt to load or set profile
+      // Attempt to load profile from Firestore
       let prof: UserProfile = {
         uid: userCredential.user.uid,
         email: trimmedEmail,
-        fullName: isAdminEmail ? 'System Administrator' : userObj.displayName,
-        role: isAdminEmail ? 'Admin' : 'Member',
-        membershipType: isAdminEmail ? 'premium' : 'Free',
+        fullName: userObj.displayName,
+        role: 'Member',
+        membershipType: 'Free',
         joinedDate: new Date().toISOString(),
       };
 
@@ -260,10 +244,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const docSnap = await getDoc(doc(db, "users", userCredential.user.uid));
         if (docSnap.exists()) {
           prof = docSnap.data() as UserProfile;
-          if (isAdminEmail || prof.role === 'Admin') {
-            prof.role = 'Admin';
-            prof.membershipType = 'premium';
-          }
         } else {
           await setDoc(doc(db, "users", userCredential.user.uid), prof, { merge: true });
         }
@@ -275,112 +255,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(prof));
       return userCredential;
     } catch (err: any) {
-      console.warn("Firebase login handler check:", err);
-      
-      // If official administrator email, verify password against active admin credentials
-      if (isAdminEmail) {
-        const isValidAdminPass = await verifyAdminPasswordLocally(pass);
-        if (!isValidAdminPass) {
-          throw new Error('Invalid administrator password. Please enter the correct password.');
-        }
-
-        const uid = 'admin_anx_core';
-        const fallbackUser = {
-          uid,
-          email: trimmedEmail,
-          displayName: 'System Administrator',
-        };
-        const fallbackProf: UserProfile = {
-          uid,
-          email: trimmedEmail,
-          fullName: 'System Administrator',
-          role: 'Admin' as const,
-          membershipType: 'premium',
-          joinedDate: new Date().toISOString(),
-        };
-
-        const token = `session_${uid}_${Date.now()}`;
-        setToken(token);
-        document.cookie = `session=${token}; path=/; max-age=2592000; SameSite=Lax`;
-        document.cookie = `__session=${token}; path=/; max-age=2592000; SameSite=Lax`;
-        document.cookie = `anx_admin=true; path=/; max-age=2592000; SameSite=Lax`;
-        localStorage.setItem('anx_admin_mode', 'true');
-
-        const finalUser = ensureUserWithToken(fallbackUser);
-        setUser(finalUser);
-        setProfile(fallbackProf);
-        localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(finalUser));
-        localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(fallbackProf));
-
-        // Fire-and-forget Firestore profile sync
-        setDoc(doc(db, "users", uid), fallbackProf, { merge: true }).catch(() => {});
-
-        return { user: finalUser };
-      }
-
-      // For standard users: if user not found, try auto-signup once
-      if (err.code === 'auth/user-not-found') {
-        try {
-          return await signup(trimmedEmail, pass);
-        } catch (signupErr) {
-          console.warn("Auto-signup error:", signupErr);
-        }
-      }
-
-      // If Firebase project has Password Login disabled in Firebase console, fallback to resilient session
-      if (
-        err.code === 'auth/operation-not-allowed' ||
-        err.code === 'auth/admin-restricted-operation' ||
-        err.message?.includes('PASSWORD_LOGIN_DISABLED')
-      ) {
-        const uid = 'usr_' + Math.abs(trimmedEmail.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0));
-        const fallbackUser = {
-          uid,
-          email: trimmedEmail,
-          displayName: trimmedEmail.split('@')[0],
-        };
-        let fallbackProf: UserProfile = {
-          uid,
-          email: trimmedEmail,
-          fullName: trimmedEmail.split('@')[0],
-          role: 'Member',
-          membershipType: 'Free',
-          joinedDate: new Date().toISOString(),
-        };
-
-        try {
-          const snap = await getDoc(doc(db, "users", uid));
-          if (snap.exists()) {
-            fallbackProf = snap.data() as UserProfile;
-          } else {
-            await setDoc(doc(db, "users", uid), fallbackProf, { merge: true });
-          }
-        } catch (dbErr) {}
-
-        const token = `session_${uid}_${Date.now()}`;
-        setToken(token);
-        document.cookie = `session=${token}; path=/; max-age=2592000; SameSite=Lax`;
-        document.cookie = `__session=${token}; path=/; max-age=2592000; SameSite=Lax`;
-        localStorage.removeItem('anx_admin_mode');
-        document.cookie = 'anx_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax';
-
-        const finalUser = ensureUserWithToken(fallbackUser);
-        setUser(finalUser);
-        setProfile(fallbackProf);
-        localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(finalUser));
-        localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(fallbackProf));
-
-        return { user: finalUser };
-      }
-
+      console.warn("Firebase login failed:", err);
       throw new Error(err.message || 'Invalid email or password.');
     }
   };
 
   const signup = async (email: string, pass: string, extra?: Partial<UserProfile>): Promise<any> => {
-    const trimmedEmail = normalizeAdminEmail(email);
-    const isAdminEmail = isOfficialAdminEmail(trimmedEmail);
-    const fullName = extra?.fullName || (isAdminEmail ? 'System Administrator' : trimmedEmail.split('@')[0]);
+    const trimmedEmail = email.trim().toLowerCase();
+    const fullName = extra?.fullName || trimmedEmail.split('@')[0];
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, pass);
@@ -391,8 +273,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid,
         email: trimmedEmail,
         fullName,
-        role: isAdminEmail ? "Admin" : "Member",
-        membershipType: isAdminEmail ? "premium" : "Free",
+        role: "Member", // Public signup always provisions as Member
+        membershipType: "Free",
         joinedDate: new Date().toISOString(),
         phoneNumber: extra?.phoneNumber || "",
         collegeName: extra?.collegeName || extra?.college || "",
@@ -417,14 +299,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       document.cookie = `session=${token}; path=/; max-age=2592000; SameSite=Lax`;
       document.cookie = `__session=${token}; path=/; max-age=2592000; SameSite=Lax`;
 
-      if (isAdminEmail) {
-        localStorage.setItem('anx_admin_mode', 'true');
-        document.cookie = `anx_admin=true; path=/; max-age=2592000; SameSite=Lax`;
-      } else {
-        localStorage.removeItem('anx_admin_mode');
-        document.cookie = 'anx_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax';
-      }
-
       const userObj = {
         uid,
         email: trimmedEmail,
@@ -442,61 +316,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (err.code === 'auth/email-already-in-use') {
         throw new Error('An account with this email already exists. Please log in with your password.');
       }
-
-      if (
-        err.code === 'auth/operation-not-allowed' ||
-        err.code === 'auth/admin-restricted-operation' ||
-        err.message?.includes('PASSWORD_LOGIN_DISABLED')
-      ) {
-        const uid = isAdminEmail ? 'admin_anx_core' : 'usr_' + Math.abs(trimmedEmail.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0));
-        const fallbackUser = {
-          uid,
-          email: trimmedEmail,
-          displayName: fullName,
-        };
-        const fallbackProf: UserProfile = {
-          uid,
-          email: trimmedEmail,
-          fullName,
-          role: isAdminEmail ? "Admin" : "Member",
-          membershipType: isAdminEmail ? "premium" : "Free",
-          joinedDate: new Date().toISOString(),
-          phoneNumber: extra?.phoneNumber || "",
-          collegeName: extra?.collegeName || extra?.college || "",
-          yearBranch: extra?.yearBranch || "",
-          skills: extra?.skills || "",
-          interests: extra?.interests || "",
-          linkedinUrl: extra?.linkedinUrl || "",
-          githubUrl: extra?.githubUrl || "",
-          portfolioUrl: extra?.portfolioUrl || ""
-        };
-
-        try {
-          await setDoc(doc(db, "users", uid), fallbackProf, { merge: true });
-        } catch (dbErr) {}
-
-        const token = `session_${uid}_${Date.now()}`;
-        setToken(token);
-        document.cookie = `session=${token}; path=/; max-age=2592000; SameSite=Lax`;
-        document.cookie = `__session=${token}; path=/; max-age=2592000; SameSite=Lax`;
-
-        if (isAdminEmail) {
-          localStorage.setItem('anx_admin_mode', 'true');
-          document.cookie = `anx_admin=true; path=/; max-age=2592000; SameSite=Lax`;
-        } else {
-          localStorage.removeItem('anx_admin_mode');
-          document.cookie = 'anx_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax';
-        }
-
-        const finalUser = ensureUserWithToken(fallbackUser);
-        setUser(finalUser);
-        setProfile(fallbackProf);
-        localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(finalUser));
-        localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(fallbackProf));
-
-        return { user: finalUser };
-      }
-
       throw new Error(err.message || 'Signup failed.');
     }
   };
@@ -569,7 +388,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 2. Call backend route to sync config & Firebase Auth
     try {
-      const token = localStorage.getItem('anx_token') || 'admin_anx_core';
+      const token = user ? await user.getIdToken() : (localStorage.getItem('anx_token') || '');
       const res = await fetch('/api/v1/admin/change-password', {
         method: 'POST',
         headers: {

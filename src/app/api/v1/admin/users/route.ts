@@ -7,14 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const verifiedUser = await verifyAuthToken(request);
-    const userEmail = (verifiedUser?.email || '').toLowerCase().trim();
-    const isAdmin = verifiedUser?.role === 'Admin' || 
-                    userEmail === 'admin@algorithmaliens.com' || 
-                    userEmail === 'admin@anx.club' ||
-                    userEmail === 'admin@algoritmaliens.com' ||
-                    userEmail === 'sairamraopolsani@gmail.com' ||
-                    verifiedUser?.uid === 'admin_user' ||
-                    verifiedUser?.uid === 'admin_anx_core';
+    const isAdmin = verifiedUser?.role?.toLowerCase() === 'admin';
 
     if (!verifiedUser || !isAdmin) {
       return NextResponse.json({ error: 'Unauthorized: Admins only' }, { status: 403 });

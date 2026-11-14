@@ -1,7 +1,6 @@
-import {adminDb, logFirestoreFallback} from '@/lib/firebase/admin';
-const db = adminDb;
 import { MentorBooking } from '@/modules/module2/types/dashboard';
 import { getBookingsByUserId } from '@/modules/module2/data';
+import { sessionsRepository } from '@/lib/turso/repositories/sessionsRepository';
 
 export async function getMentorBookings(
   userId: string,
@@ -12,27 +11,20 @@ export async function getMentorBookings(
     throw new Error('Simulated failure in Mentor Booking Service');
   }
 
-  if (db && !mock) {
+  if (!mock) {
     try {
-      const snapshot = await db.collection('mentorBookings')
-        .where('userId', '==', userId)
-        .orderBy('dateTime', 'asc')
-        .get();
-
-      const bookings: MentorBooking[] = [];
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        bookings.push({
-          id: doc.id,
-          mentorName: data.mentorName || '',
-          dateTime: data.dateTime || '',
-          topic: data.topic || '',
-          status: data.status || '',
-        });
-      });
-      return bookings;
-    } catch (error) {
-      logFirestoreFallback('Mentor bookings service', error);
+      const sessions = await sessionsRepository.listByStudent(userId);
+      if (sessions.length > 0) {
+        return sessions.map((s) => ({
+          id: s.id,
+          mentorName: s.mentor_name || 'Mentor',
+          dateTime: `${s.scheduled_date} ${s.start_time}`,
+          topic: s.topic,
+          status: s.status,
+        }));
+      }
+    } catch (err) {
+      console.warn('[bookingService] Turso sessions query fallback:', err);
     }
   }
 

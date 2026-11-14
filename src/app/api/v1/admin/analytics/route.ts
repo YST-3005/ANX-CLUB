@@ -1,22 +1,14 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { verifyAuthToken } from '@/lib/firebase/admin-auth';
+import { requireAdmin } from '@/lib/auth';
+import { mentorsRepository } from '@/lib/turso/repositories/mentorsRepository';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const verifiedUser = await verifyAuthToken(request);
-    const userEmail = (verifiedUser?.email || '').toLowerCase().trim();
-    const isAdmin = verifiedUser?.role === 'Admin' || 
-                    userEmail === 'admin@algorithmaliens.com' || 
-                    userEmail === 'admin@anx.club' ||
-                    userEmail === 'admin@algoritmaliens.com' ||
-                    verifiedUser?.uid === 'admin_user' ||
-                    verifiedUser?.uid === 'admin_anx_core';
-    if (!verifiedUser || !isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized: Admins only' }, { status: 403 });
-    }
+    const authRes = await requireAdmin(request);
+    if ('response' in authRes) return authRes.response;
 
     // 1. Fetch Users
     const usersSnapshot = await adminDb.collection('users').get();
@@ -87,12 +79,25 @@ export async function GET(request: Request) {
       // Keep estimated revenue
     }
 
+    // 6. Fetch Mentor statistics from authoritative Turso database
+    let totalMentors = 0;
+    let activeMentors = 0;
+    try {
+      const stats = await mentorsRepository.getMentorStats();
+      totalMentors = stats.totalMentors;
+      activeMentors = stats.activeMentors;
+    } catch (mentorErr) {
+      console.warn('[GET /api/v1/admin/analytics] Failed to get mentor stats:', mentorErr);
+    }
+
     return NextResponse.json({
       totalUsers: Math.max(totalUsers, 1),
       premiumUsers,
       totalEvents: Math.max(totalEvents, 0),
       totalResources: Math.max(totalResources, 0),
       totalRoadmaps: Math.max(totalRoadmaps, 0),
+      totalMentors,
+      activeMentors,
       mam: Math.round(totalUsers * 0.75) || 1,
       mrr: totalRevenue,
       growthRate: '+18.4%',
@@ -108,6 +113,8 @@ export async function GET(request: Request) {
       totalEvents: 6,
       totalResources: 12,
       totalRoadmaps: 10,
+      totalMentors: 4,
+      activeMentors: 4,
       mam: 18,
       mrr: 7992,
       growthRate: '+14.2%',

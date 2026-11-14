@@ -56,8 +56,22 @@ export default function ManageMembersPage() {
 
   const handleToggleStatus = async (id: string, current: string) => {
     const next = current === 'active' ? 'suspended' : 'active'
-    setMembers(prev => prev.map(m => m.id === id ? { ...m, status: next } : m))
-    toast.success(`Account status updated to ${next}!`)
+    try {
+      const token = await getAuthToken(user);
+      const res = await fetch('/api/v1/admin/users/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ userId: id, status: next }),
+      });
+      if (!res.ok) throw new Error('Status update failed');
+      setMembers(prev => prev.map(m => m.id === id ? { ...m, status: next } : m))
+      toast.success(`Account status updated to ${next}!`)
+    } catch {
+      toast.error('Failed to update status in database.')
+    }
   }
 
   const handleToggleTier = async (id: string, current: string) => {
@@ -82,10 +96,20 @@ export default function ManageMembersPage() {
     }
   }
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to remove member: ${name}?`)) {
-      setMembers(prev => prev.filter(m => m.id !== id))
-      toast.success(`${name} has been removed from database.`)
+      try {
+        const token = await getAuthToken(user);
+        const res = await fetch(`/api/v1/admin/users/${id}`, {
+          method: 'DELETE',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error('Delete failed');
+        setMembers(prev => prev.filter(m => m.id !== id))
+        toast.success(`${name} has been removed from database.`)
+      } catch {
+        toast.error('Failed to delete member from database.')
+      }
     }
   }
 

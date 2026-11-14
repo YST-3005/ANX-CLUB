@@ -42,41 +42,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const tokenLower = token.toLowerCase();
-  // Handle custom tokens / admin sessions / mock tokens / user IDs
-  if (
-    tokenLower.startsWith('mock_') ||
-    tokenLower.startsWith('session_') ||
-    tokenLower.startsWith('demo-token-') ||
-    tokenLower.startsWith('usr_') ||
-    tokenLower.startsWith('admin_') ||
-    tokenLower.includes('admin') ||
-    tokenLower.includes('@') ||
-    token.split('.').length !== 3
-  ) {
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-id', token);
-    return NextResponse.next({
-      request: { headers: requestHeaders },
-    });
-  }
+  // Strip untrusted client-supplied identity headers
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete('x-user-id');
 
-  try {
-    const payload = jose.decodeJwt(token);
-    const userId = payload.sub || payload.uid || (payload as any).user_id;
-
-    const requestHeaders = new Headers(request.headers);
-    if (userId) {
-      requestHeaders.set('x-user-id', String(userId));
-    }
-
-    return NextResponse.next({
-      request: { headers: requestHeaders },
-    });
-  } catch {
-    // If decoding fails, continue to route handler where authenticate() handles it gracefully
-    return NextResponse.next();
-  }
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 }
 
 export const config = {

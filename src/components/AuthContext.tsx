@@ -212,51 +212,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {}
       return userCredential;
     } catch (err: any) {
-      console.warn("Firebase login failed, executing smart fallback:", err);
-      // Auto-register if user doesn't exist
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
-        try {
-          return await signup(trimmedEmail, pass);
-        } catch (signupErr) {
-          console.warn("Auto-signup during login attempt:", signupErr);
-        }
-      }
-
-      // If Firebase email auth is restricted/offline, create active local session
-      const isAdminEmail = trimmedEmail.startsWith('admin') || trimmedEmail.includes('admin@');
-      const uid = 'usr_' + Math.abs(trimmedEmail.split('').reduce((a,b) => {a=((a<<5)-a)+b.charCodeAt(0);return a&a},0));
-      const fallbackUser = {
-        uid,
-        email: trimmedEmail,
-        displayName: isAdminEmail ? 'System Admin' : trimmedEmail.split('@')[0],
-      };
-      const fallbackProf: UserProfile = {
-        uid,
-        email: trimmedEmail,
-        fullName: isAdminEmail ? 'System Administrator' : trimmedEmail.split('@')[0],
-        role: isAdminEmail ? 'Admin' : 'Member',
-        membershipType: isAdminEmail ? 'premium' : 'Free',
-        joinedDate: new Date().toISOString(),
-      };
-
-      const token = `session_${uid}_${Date.now()}`;
-      setToken(token);
-      document.cookie = `session=${token}; path=/; max-age=86400; SameSite=Lax`;
-      document.cookie = `__session=${token}; path=/; max-age=86400; SameSite=Lax`;
-
-      setUser(fallbackUser);
-      setProfile(fallbackProf);
-      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(fallbackUser));
-      localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(fallbackProf));
-
-      return { user: fallbackUser };
+      console.warn("Firebase login failed:", err);
+      throw new Error(err.message || 'Invalid email or password.');
     }
   };
 
   const signup = async (email: string, pass: string, extra?: Partial<UserProfile>): Promise<any> => {
     const trimmedEmail = email.trim().toLowerCase();
-    const isAdminEmail = trimmedEmail.startsWith('admin') || trimmedEmail.includes('admin@');
-    const fullName = extra?.fullName || (isAdminEmail ? 'System Administrator' : trimmedEmail.split('@')[0]);
+    const fullName = extra?.fullName || trimmedEmail.split('@')[0];
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, pass);
@@ -267,8 +230,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid,
         email: trimmedEmail,
         fullName,
-        role: isAdminEmail ? "Admin" : "Member",
-        membershipType: isAdminEmail ? "premium" : "Free",
+        role: "Member", // Public signup always provisions as Member
+        membershipType: "Free",
         joinedDate: new Date().toISOString(),
         phoneNumber: extra?.phoneNumber || "",
         collegeName: extra?.collegeName || extra?.college || "",
@@ -302,39 +265,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return userCredential;
     } catch (err: any) {
-      console.warn("Firebase signup error, using resilient session:", err);
+      console.warn("Firebase signup error:", err);
       if (err.code === 'auth/email-already-in-use') {
-        return await login(trimmedEmail, pass);
+        throw new Error('An account with this email already exists. Please log in with your password.');
       }
-
-      const uid = 'usr_' + Math.abs(trimmedEmail.split('').reduce((a,b) => {a=((a<<5)-a)+b.charCodeAt(0);return a&a},0));
-      const fallbackUser = {
-        uid,
-        email: trimmedEmail,
-        displayName: fullName,
-      };
-      const fallbackProf: UserProfile = {
-        uid,
-        email: trimmedEmail,
-        fullName,
-        role: 'Member',
-        membershipType: 'Free',
-        joinedDate: new Date().toISOString(),
-        collegeName: extra?.collegeName || extra?.college || "",
-        yearBranch: extra?.yearBranch || "",
-      };
-
-      const token = `session_${uid}_${Date.now()}`;
-      setToken(token);
-      document.cookie = `session=${token}; path=/; max-age=86400; SameSite=Lax`;
-      document.cookie = `__session=${token}; path=/; max-age=86400; SameSite=Lax`;
-
-      setUser(fallbackUser);
-      setProfile(fallbackProf);
-      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(fallbackUser));
-      localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(fallbackProf));
-
-      return { user: fallbackUser };
+      throw new Error(err.message || 'Signup failed.');
     }
   };
 

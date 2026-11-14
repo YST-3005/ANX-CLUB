@@ -16,7 +16,8 @@ import {
   Bot,
   Map,
   Shield,
-  MessageSquare
+  MessageSquare,
+  Video
 } from 'lucide-react'
 import { MOCK_USER, MOCK_EVENTS, MOCK_ANNOUNCEMENTS, MOCK_RESOURCES, MOCK_MENTORS } from '@/lib/constants'
 import { formatDate, cn } from '@/lib/utils'
@@ -62,6 +63,8 @@ export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<any>(null)
   const [registeredList, setRegisteredList] = useState<string[]>([])
   const [events, setEvents] = useState<any[]>([])
+  const [studentRequests, setStudentRequests] = useState<any[]>([])
+  const [studentSessions, setStudentSessions] = useState<any[]>([])
   const [chartReady, setChartReady] = useState(false)
 
   useEffect(() => {
@@ -73,9 +76,9 @@ export default function DashboardPage() {
       if (!user) return
       try {
         const token = await getAuthToken(user)
-        const res = await fetch("/api/v1/module2/dashboard", {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        })
+        const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+
+        const res = await fetch("/api/v1/module2/dashboard", { headers })
         if (res.ok) {
           const data = await res.json()
           setDashboardData(data)
@@ -86,6 +89,20 @@ export default function DashboardPage() {
             setEvents(data.upcomingEvents)
           }
         }
+
+        // Fetch real student mentoring requests from Turso
+        const reqRes = await fetch("/api/v1/mentoring/requests?as=student", { headers })
+        if (reqRes.ok) {
+          const reqJson = await reqRes.json()
+          setStudentRequests(reqJson.requests || [])
+        }
+
+        // Fetch real student mentoring sessions from Turso
+        const sesRes = await fetch("/api/v1/mentoring/sessions?as=student", { headers })
+        if (sesRes.ok) {
+          const sesJson = await sesRes.json()
+          setStudentSessions(sesJson.sessions || [])
+        }
       } catch (err) {
         console.warn("Backend not reachable, using mock data.", err)
       }
@@ -95,9 +112,8 @@ export default function DashboardPage() {
     }
   }, [user, authLoading])
 
-  const upcomingEvents = events.length > 0 ? events : MOCK_EVENTS;
+  const upcomingEvents = events.length > 0 ? events : (dashboardData?.upcomingEvents || MOCK_EVENTS);
   const announcements = dashboardData?.announcements || MOCK_ANNOUNCEMENTS;
-  const mentorBookings = dashboardData?.mentorBookings || MOCK_MENTORS;
   const projects = dashboardData?.projects || [];
 
   return (
@@ -173,10 +189,10 @@ export default function DashboardPage() {
           {/* 4 Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-10">
             {[
-              { label: 'Events Registered', value: upcomingEvents.length.toString(), inc: '20%', icon: Calendar, color: 'text-purple-400', bg: 'bg-purple-500/20' },
-              { label: 'Mentor Sessions', value: mentorBookings.length.toString(), inc: '50%', icon: Users2, color: 'text-blue-400', bg: 'bg-blue-500/20' },
-              { label: 'Projects In Progress', value: projects.length.toString(), inc: '25%', icon: FolderGit2, color: 'text-orange-400', bg: 'bg-orange-500/20' },
-              { label: 'Community Posts', value: '8', inc: '35%', icon: MessageSquare, color: 'text-green-400', bg: 'bg-green-500/20' },
+              { label: 'Events Registered', value: registeredList.length.toString(), inc: 'Live', icon: Calendar, color: 'text-purple-400', bg: 'bg-purple-500/20' },
+              { label: 'Mentor Sessions', value: studentSessions.filter(s => s.status === 'confirmed').length.toString(), inc: 'Active', icon: Users2, color: 'text-blue-400', bg: 'bg-blue-500/20' },
+              { label: 'Pending Requests', value: studentRequests.filter(r => r.status === 'pending' || r.status === 'accepted').length.toString(), inc: 'In Review', icon: FolderGit2, color: 'text-orange-400', bg: 'bg-orange-500/20' },
+              { label: 'XP Earned', value: (profile?.xpTotal || dashboardData?.xpTotal || 120).toString(), inc: '+75 / session', icon: Zap, color: 'text-green-400', bg: 'bg-green-500/20' },
             ].map((stat, i) => (
               <div key={i} className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl p-4 flex flex-col justify-between hover:border-white/20 transition-all">
                 <div className="flex items-start justify-between">
@@ -189,7 +205,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 mt-4 text-xs font-bold text-emerald-400">
-                  <ArrowRight className="h-3 w-3 -rotate-45" /> {stat.inc} this month
+                  <ArrowRight className="h-3 w-3 -rotate-45" /> {stat.inc}
                 </div>
               </div>
             ))}
@@ -222,7 +238,9 @@ export default function DashboardPage() {
                       <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1"><Calendar className="h-3 w-3"/> {formatDate(ev.date)}</p>
                       <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1"><Map className="h-3 w-3"/> {ev.venue || 'Online'}</p>
                     </div>
-                    <Badge variant="primary" className="border-fuchsia-500/50 text-fuchsia-400 bg-fuchsia-500/10 text-[10px]">Registered</Badge>
+                    <Badge variant={registeredList.includes(ev.id) ? "primary" : "default"} className={registeredList.includes(ev.id) ? "border-fuchsia-500/50 text-fuchsia-400 bg-fuchsia-500/10 text-[10px]" : "border-white/10 text-gray-400 bg-white/5 text-[10px]"}>
+                      {registeredList.includes(ev.id) ? 'Registered' : 'Open'}
+                    </Badge>
                   </Link>
                 ))
               )}
@@ -375,27 +393,66 @@ export default function DashboardPage() {
           <Card padding="none" className="glass border-white/10 overflow-hidden shadow-xl hover:shadow-[0_0_30px_rgba(217,70,239,0.05)] transition-all">
             <div className="flex items-center justify-between p-5 border-b border-white/10">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Zap className="h-4 w-4 text-fuchsia-500" /> Upcoming Mentor Sessions
+                <Users2 className="h-4 w-4 text-fuchsia-500" /> Mentor Sessions & Requests
               </h2>
               <Link href="/mentors" className="text-xs font-medium text-fuchsia-400 hover:text-fuchsia-300">View All →</Link>
             </div>
             <div className="p-3 space-y-2">
-              {mentorBookings.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 text-xs">No upcoming sessions</div>
+              {studentSessions.length === 0 && studentRequests.length === 0 ? (
+                <div className="py-8 text-center text-gray-500 text-xs">
+                  <p>No upcoming sessions or requests</p>
+                  <Link href="/mentors" className="mt-2 inline-block text-fuchsia-400 hover:underline">
+                    Browse mentors & book a session →
+                  </Link>
+                </div>
               ) : (
-                mentorBookings.slice(0, 3).map((booking: any) => (
-                  <div onClick={() => toast.success(`Viewing session with ${booking.mentorName || booking.name}`)} key={booking.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all cursor-pointer">
-                    <Avatar name={booking.mentorName || booking.name} size="md" className="ring-2 ring-white/10" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white">{booking.mentorName || booking.name}</p>
-                      <p className="text-[11px] text-gray-400 truncate">Mentor Session</p>
-                      <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1"><Calendar className="h-3 w-3"/> {formatDate(booking.scheduledAt || new Date())}</p>
+                <>
+                  {studentSessions.map((session: any) => (
+                    <div key={`ses-${session.id}`} className="p-3 rounded-xl hover:bg-white/5 transition-all bg-white/[0.02] border border-white/5">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={session.mentor_name || 'Mentor'} size="md" className="ring-2 ring-white/10" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-white truncate">{session.mentor_name || 'Mentor'}</p>
+                          <p className="text-[11px] text-gray-400 truncate">{session.topic || '1-on-1 Mentorship'}</p>
+                          <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {session.scheduled_at ? formatDate(session.scheduled_at) : 'Scheduled'} ({session.duration_minutes || 45}m)
+                          </p>
+                        </div>
+                        <Badge variant="default" className={cn("text-[10px]", session.status === 'confirmed' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-blue-400 bg-blue-500/10 border-blue-500/30')}>
+                          {session.status === 'confirmed' ? 'Confirmed' : session.status}
+                        </Badge>
+                      </div>
+                      {session.meeting_link && session.status === 'confirmed' && (
+                        <div className="mt-2 pt-2 border-t border-white/5 flex justify-end">
+                          <a
+                            href={session.meeting_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600/20 text-emerald-300 text-xs font-semibold hover:bg-emerald-600/30 border border-emerald-500/30 transition-all"
+                          >
+                            <Video className="h-3.5 w-3.5" />
+                            Join Google Meet
+                          </a>
+                        </div>
+                      )}
                     </div>
-                    <Badge variant="default" className={cn("text-[10px]", booking.status === 'Confirmed' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-orange-400 bg-orange-500/10 border-orange-500/30')}>
-                      {booking.status || 'Pending'}
-                    </Badge>
-                  </div>
-                ))
+                  ))}
+
+                  {studentRequests.filter((r: any) => r.status === 'pending' || r.status === 'accepted').map((req: any) => (
+                    <div key={`req-${req.id}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all bg-white/[0.01]">
+                      <Avatar name={req.mentor_name || 'Mentor'} size="md" className="ring-2 ring-white/10" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{req.mentor_name || 'Mentor Request'}</p>
+                        <p className="text-[11px] text-gray-400 truncate">{req.topic || 'Mentorship Request'}</p>
+                        <p className="text-[10px] text-gray-500 mt-1">{formatDate(req.created_at)}</p>
+                      </div>
+                      <Badge variant="default" className={cn("text-[10px]", req.status === 'accepted' ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30' : 'text-amber-400 bg-amber-500/10 border-amber-500/30')}>
+                        {req.status === 'accepted' ? 'Awaiting Schedule' : 'Pending Review'}
+                      </Badge>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           </Card>

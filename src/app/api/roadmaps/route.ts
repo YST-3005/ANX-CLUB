@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { authenticate } from '@/lib/auth';
+import { authenticate, requireAdmin } from '@/lib/auth';
 import { DEFAULT_NATIVE_ROADMAPS } from '@/lib/roadmaps';
 import { getMemoryRoadmaps, addMemoryRoadmap } from '@/lib/memory-store';
 import * as admin from 'firebase-admin';
@@ -45,28 +45,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const userId = await authenticate(request);
-    const userIdLower = (userId || 'admin_user').toLowerCase();
-    let isAdmin = userIdLower.includes('admin') || userIdLower === 'admin@algorithmaliens.com' || userIdLower === 'admin@anx.club' || userIdLower === 'default_user_123';
-    
-    if (userId) {
-      try {
-        const userDoc = await adminDb.collection('users').doc(userId).get();
-        if (userDoc.exists) {
-          const userData = userDoc.data();
-          const userEmail = (userData?.email || '').toLowerCase();
-          if (userData?.role?.toLowerCase() === 'admin' || userEmail === 'admin@algorithmaliens.com' || userEmail === 'admin@anx.club') {
-            isAdmin = true;
-          }
-        }
-      } catch (dbErr: any) {
-        console.warn(`[POST /api/roadmaps] Firestore user lookup fallback: ${dbErr?.message || dbErr}`);
-      }
-    }
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
+    const authRes = await requireAdmin(request);
+    if ('response' in authRes) return authRes.response;
+    const user = authRes.user;
 
     const body = await request.json();
     const { 
@@ -99,7 +80,7 @@ export async function POST(request: Request) {
         { id: `${docId}-2`, title: 'Intermediate Implementations', description: 'Building functional modules and practice projects.' },
         { id: `${docId}-3`, title: 'Advanced Production Readiness', description: 'Performance optimization, security, and deployment.' }
       ],
-      createdBy: userId || 'admin',
+      createdBy: user.uid,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

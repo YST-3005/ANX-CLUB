@@ -1,7 +1,6 @@
-import {adminDb, logFirestoreFallback} from '@/lib/firebase/admin';
-const db = adminDb;
 import { UserProfile } from '@/modules/module2/types/dashboard';
 import { getUserByIdOrEmail } from '@/modules/module2/data';
+import { usersRepository } from '@/lib/turso/repositories/usersRepository';
 
 export async function getUser(
   userId: string,
@@ -12,15 +11,22 @@ export async function getUser(
     throw new Error('Simulated failure in User Service');
   }
 
-  if (db && !mock) {
+  if (!mock) {
     try {
-      const doc = await db.collection('users').doc(userId).get();
-      if (doc.exists) {
-        const data = doc.data();
-        return data ? (data as UserProfile) : {};
+      const dbUser = await usersRepository.getById(userId);
+      if (dbUser) {
+        return {
+          id: dbUser.id,
+          name: dbUser.full_name,
+          email: dbUser.email,
+          role: dbUser.role,
+          college: dbUser.college_name || undefined,
+          overallProgress: Math.min(100, Math.round((dbUser.xp_total / 500) * 100)),
+          createdAt: new Date(dbUser.created_at).toISOString(),
+        } as unknown as UserProfile;
       }
-    } catch (error) {
-      logFirestoreFallback('User service', error);
+    } catch (err) {
+      console.warn('[userService] Turso query fallback to seed:', err);
     }
   }
 

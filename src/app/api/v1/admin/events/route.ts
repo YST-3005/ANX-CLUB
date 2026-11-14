@@ -1,27 +1,13 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { authenticate } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await authenticate(request);
-    if (!userId) {
-      return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
-    }
-
-    const userDoc = await adminDb.collection("users").doc(userId).get();
-    const userData = userDoc.exists ? userDoc.data() : null;
-    const isUserAdmin = userData?.role?.toLowerCase() === "admin" ||
-                        userData?.email?.toLowerCase() === "admin@algorithmaliens.com" ||
-                        userData?.email?.toLowerCase() === "admin@anx.club" ||
-                        userData?.email?.toLowerCase() === "admin@algoritmaliens.com" ||
-                        userId === "admin_user" ||
-                        userId === "admin_anx_core";
-    if (!isUserAdmin) {
-      return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden: Administrator role required" } }, { status: 403 });
-    }
+    const authRes = await requireAdmin(request);
+    if ('response' in authRes) return authRes.response;
 
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
@@ -58,22 +44,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await authenticate(request);
-    if (!userId) {
-      return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } }, { status: 401 });
-    }
-
-    const userDoc = await adminDb.collection("users").doc(userId).get();
-    const userData = userDoc.exists ? userDoc.data() : null;
-    const isUserAdmin = userData?.role?.toLowerCase() === "admin" ||
-                        userData?.email?.toLowerCase() === "admin@algorithmaliens.com" ||
-                        userData?.email?.toLowerCase() === "admin@anx.club" ||
-                        userData?.email?.toLowerCase() === "admin@algoritmaliens.com" ||
-                        userId === "admin_user" ||
-                        userId === "admin_anx_core";
-    if (!isUserAdmin) {
-      return NextResponse.json({ success: false, error: { code: "FORBIDDEN", message: "Forbidden: Administrator role required" } }, { status: 403 });
-    }
+    const authRes = await requireAdmin(request);
+    if ('response' in authRes) return authRes.response;
 
     const body = await request.json();
     const { title, description, date, type, price, premiumPrice, memberOnly, speaker, seats, imageUrl } = body;

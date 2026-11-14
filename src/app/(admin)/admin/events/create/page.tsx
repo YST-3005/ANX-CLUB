@@ -54,14 +54,14 @@ export default function CreateEventPage() {
     try {
       let token = await getAuthToken(user)
       if (!token && typeof window !== 'undefined') {
-        token = localStorage.getItem('anx_token') || localStorage.getItem('session') || 'mock_admin_token'
+        token = localStorage.getItem('anx_token') || localStorage.getItem('session') || ''
       }
 
       const response = await fetch('/api/v1/events', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token || 'mock_admin_token'}`
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify(form)
       })

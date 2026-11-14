@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { authenticate } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -16,13 +16,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const userId = await authenticate(request);
+    const authResult = await requireAuth(request);
+    if ('response' in authResult) {
+      return authResult.response;
+    }
+    const { user } = authResult;
+    const actualMemberId = user.uid;
+
     const body = await request.json();
     const { rating, comment, memberName } = body;
-    
-    const actualMemberId = userId || body.memberId;
 
-    if (!rating || !actualMemberId || !memberName) {
+    if (!rating || !memberName) {
       return NextResponse.json({ success: false, error: { code: "BAD_REQUEST", message: 'Missing required fields' } }, { status: 400 });
     }
 

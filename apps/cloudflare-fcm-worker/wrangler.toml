@@ -1,0 +1,10 @@
+name = "anx-cloudflare-fcm-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+
+[vars]
+FIREBASE_PROJECT_ID = "anx-club-prod"
+
+# Secrets to be configured with 'wrangler secret put':
+# - WEBHOOK_HMAC_SECRET
+# - FCM_SERVICE_ACCOUNT

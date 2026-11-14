@@ -14,10 +14,12 @@ export async function getAuthToken(user?: any): Promise<string> {
     }
   }
 
-  // Fallback to local storage token
+  // Fallback to local storage token (valid tokens only)
   if (typeof window !== 'undefined') {
     const localToken = getLocalToken() || localStorage.getItem('anx_token') || localStorage.getItem('session');
-    if (localToken) return localToken;
+    if (localToken && !localToken.startsWith('session_') && !localToken.startsWith('mock_') && !localToken.startsWith('demo-')) {
+      return localToken;
+    }
   }
 
   return '';

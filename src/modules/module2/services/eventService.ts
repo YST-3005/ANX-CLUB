@@ -1,8 +1,6 @@
-import {adminDb, logFirestoreFallback} from '@/lib/firebase/admin';
-const db = adminDb;
 import { PlatformEvent } from '@/modules/module2/types/dashboard';
 import { getUpcomingEventsList, getRegisteredEventsByUserId } from '@/modules/module2/data';
-import * as admin from 'firebase-admin';
+import { eventsRepository } from '@/lib/turso/repositories/eventsRepository';
 
 export async function getUpcomingEvents(
   mock = false,
@@ -12,28 +10,21 @@ export async function getUpcomingEvents(
     throw new Error('Simulated failure in Upcoming Events Service');
   }
 
-  if (db && !mock) {
+  if (!mock) {
     try {
-      const snapshot = await db.collection('events')
-        .where('date', '>=', new Date().toISOString())
-        .orderBy('date', 'asc')
-        .limit(10)
-        .get();
-      
-      const events: PlatformEvent[] = [];
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        events.push({
-          id: doc.id,
-          title: data.title || '',
-          date: data.date || '',
-          location: data.location || '',
-          description: data.description || '',
-        });
-      });
-      return events;
-    } catch (error) {
-      logFirestoreFallback('Upcoming events service', error);
+      await eventsRepository.seedDefaultEventsIfEmpty().catch(() => {});
+      const events = await eventsRepository.listUpcoming(10);
+      if (events.length > 0) {
+        return events.map((e) => ({
+          id: e.id,
+          title: e.title,
+          date: e.date,
+          location: e.venue || (e.is_online ? 'Online Live Stream' : 'Campus Hall A'),
+          description: e.description || '',
+        }));
+      }
+    } catch (err) {
+      console.warn('[eventService] Turso upcoming events fallback:', err);
     }
   }
 
@@ -50,45 +41,21 @@ export async function getRegisteredEvents(
     throw new Error('Simulated failure in Registered Events Service');
   }
 
-  if (db && !mock) {
+  if (!mock) {
     try {
-      const snapshot = await db.collection('eventRegistrations')
-        .where('userId', '==', userId)
-        .get();
-
-      if (!snapshot.empty) {
-        const registrations = snapshot.docs.map(doc => doc.data());
-        const eventIdToRegAt = new Map<string, string>();
-        for (const reg of registrations) {
-          if (reg.eventId) {
-            eventIdToRegAt.set(reg.eventId, reg.registeredAt || '');
-          }
-        }
-
-        const eventIds = Array.from(eventIdToRegAt.keys()).slice(0, 30);
-        if (eventIds.length > 0) {
-          const eventsSnapshot = await db.collection('events')
-            .where(admin.firestore.FieldPath.documentId(), 'in', eventIds)
-            .get();
-
-          const events: PlatformEvent[] = [];
-          eventsSnapshot.forEach(doc => {
-            const eventData = doc.data();
-            events.push({
-              id: doc.id,
-              title: eventData.title || '',
-              date: eventData.date || '',
-              location: eventData.location || '',
-              description: eventData.description || '',
-              registeredAt: eventIdToRegAt.get(doc.id) || '',
-            });
-          });
-
-          return events;
-        }
+      const registrations = await eventsRepository.getUserRegistrations(userId);
+      if (registrations.length > 0) {
+        return registrations.map((r) => ({
+          id: r.event_id,
+          title: r.event_title || 'Registered Event',
+          date: r.event_date || '',
+          location: r.event_venue || (r.is_online ? 'Online' : 'Campus'),
+          description: '',
+          registeredAt: new Date(r.created_at).toISOString(),
+        }));
       }
-    } catch (error) {
-      logFirestoreFallback('Registered events service', error);
+    } catch (err) {
+      console.warn('[eventService] Turso registered events fallback:', err);
     }
   }
 

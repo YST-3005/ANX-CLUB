@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase/client';
+import React, { useState, useEffect, useCallback } from 'react';
+import { auth } from '@/lib/firebase/client';
 import styles from './NotificationBell.module.css';
 
 interface AppNotification {
@@ -11,53 +10,68 @@ interface AppNotification {
   body: string;
   actionUrl?: string;
   isRead: boolean;
-  createdAt: any;
+  createdAt: number;
 }
 
-export default function NotificationBell({ userId }: { userId: string }) {
+export default function NotificationBell({ userId }: { userId?: string }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+      const token = await currentUser.getIdToken();
+
+      const res = await fetch('/api/v1/notifications', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications || []);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch notifications from REST backend', err);
+    }
+  }, []);
+
   useEffect(() => {
-    if (!userId) return;
+    fetchNotifications();
 
-    const q = query(
-      collection(db, 'notifications'),
-      where('recipientId', '==', userId)
-    );
+    // Poll every 30 seconds for background notifications
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications, userId]);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notifs: AppNotification[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        notifs.push({
-          id: doc.id,
-          title: data.title || '',
-          body: data.message || data.body || '',
-          actionUrl: data.link || data.actionUrl || '',
-          isRead: data.isRead || data.read || false,
-          createdAt: data.createdAt,
-        });
-      });
-      // Sort newest first
-      notifs.sort((a, b) => {
-        const timeA = a.createdAt?.seconds || new Date(a.createdAt).getTime() / 1000 || 0;
-        const timeB = b.createdAt?.seconds || new Date(b.createdAt).getTime() / 1000 || 0;
-        return timeB - timeA;
-      });
-      setNotifications(notifs);
-    });
-
-    return () => unsubscribe();
-  }, [userId]);
-
-  const toggleDropdown = () => setIsOpen(!isOpen);
+  const toggleDropdown = () => {
+    setIsOpen(!isOpen);
+    if (!isOpen) {
+      fetchNotifications();
+    }
+  };
 
   const markAsRead = async (id: string) => {
     try {
-      const notifRef = doc(db, 'notifications', id);
-      await updateDoc(notifRef, { isRead: true });
+      setNotifications(prev =>
+        prev.map(n => (n.id === id ? { ...n, isRead: true } : n))
+      );
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+      const token = await currentUser.getIdToken();
+
+      await fetch('/api/v1/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id }),
+      });
     } catch (err) {
       console.error('Failed to mark notification as read', err);
     }
@@ -65,11 +79,20 @@ export default function NotificationBell({ userId }: { userId: string }) {
 
   const markAllAsRead = async () => {
     try {
-      const batch = writeBatch(db);
-      notifications.filter(n => !n.isRead).forEach(n => {
-        batch.update(doc(db, 'notifications', n.id), { isRead: true });
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+      const token = await currentUser.getIdToken();
+
+      await fetch('/api/v1/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ all: true }),
       });
-      await batch.commit();
     } catch (err) {
       console.error('Failed to mark all as read', err);
     }

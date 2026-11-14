@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
-import {adminDb} from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
+    const authResult = await requireAuth(request);
+    if ('response' in authResult) {
+      return authResult.response;
+    }
+    const { user } = authResult;
+
     const body = await request.json();
     const { currentEmail, currentUserName, targetEmail, targetUserName } = body;
 
@@ -10,8 +17,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields or mentor has no owner email' }, { status: 400 });
     }
 
+    // Security: Authenticated user must be one of the chat participants (or an Admin)
+    const normalizedUserEmail = (user.email || '').toLowerCase().trim();
+    const normalizedCurrent = currentEmail.toLowerCase().trim();
+    const normalizedTarget = targetEmail.toLowerCase().trim();
+    const isAdmin = user.role.toLowerCase() === 'admin';
+
+    if (!isAdmin && normalizedUserEmail !== normalizedCurrent && normalizedUserEmail !== normalizedTarget) {
+      return NextResponse.json(
+        { error: 'Forbidden: You cannot initialize or view chats for other users.' },
+        { status: 403 }
+      );
+    }
+
     // Sort emails to ensure consistent participant array query
-    const participants = [currentEmail, targetEmail].sort();
+    const participants = [normalizedCurrent, normalizedTarget].sort();
 
     // Check if chat exists
     const snapshot = await adminDb.collection('chats')

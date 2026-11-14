@@ -1,22 +1,23 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { authenticate } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 import * as admin from 'firebase-admin';
 import { awardXP } from '@/lib/gamification';
 
 export async function POST(request: NextRequest, { params }: { params: { ideaId: string } }) {
   try {
-    const userId = await authenticate(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await requireAuth(request);
+    if ('response' in authResult) {
+      return authResult.response;
     }
+    const { user } = authResult;
 
-    // Verify user is a mentor/admin
-    const userDoc = await adminDb.collection('users').doc(userId).get();
-    const userData = userDoc.data();
-    if (!userData || (userData.role !== 'Admin' && userData.role !== 'Mentor')) {
+    // Verify user is a mentor/admin in Turso
+    const isMentorOrAdmin = user.role.toLowerCase() === 'admin' || user.role.toLowerCase() === 'mentor';
+    if (!isMentorOrAdmin) {
       return NextResponse.json({ error: 'Forbidden: Requires Mentor or Admin role' }, { status: 403 });
     }
+    const userId = user.uid;
 
     const body = await request.json();
     const { status, feedback } = body;

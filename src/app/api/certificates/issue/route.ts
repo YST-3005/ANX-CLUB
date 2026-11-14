@@ -3,19 +3,14 @@ import { adminDb, adminAuth, adminStorage } from '@/lib/firebase/admin';
 import * as admin from 'firebase-admin';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import crypto from 'crypto';
-import { authenticate } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
-    // 1. Authenticate Request (Must be Admin)
-    const userId = await authenticate(request as any);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const userDoc = await adminDb.collection('users').doc(userId).get();
-    if (userDoc.data()?.role !== 'Admin') {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    // 1. Authenticate Request (Must be Turso Admin)
+    const authResult = await requireAdmin(request);
+    if ('response' in authResult) {
+      return authResult.response;
     }
 
     const body = await request.json();

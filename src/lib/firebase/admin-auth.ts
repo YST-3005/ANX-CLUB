@@ -1,4 +1,5 @@
 import { adminAuth, adminDb } from './admin';
+import { usersRepository } from '@/lib/turso/repositories/usersRepository';
 
 export interface VerifiedUser {
   uid: string;
@@ -7,8 +8,12 @@ export interface VerifiedUser {
 }
 
 /**
- * Extracts and verifies the Firebase ID token from the Authorization header.
- * Optionally fetches the user's role from Firestore if it's not set as a custom claim.
+ * Extracts and verifies the Firebase ID token from Authorization header or session cookies.
+ * Authoritative role is strictly resolved from the Turso operational database.
+ * Security principles:
+ * - Fails closed on database lookup errors.
+ * - Idempotently provisions new users as ordinary Members in Turso.
+ * - Prohibits client-supplied roles, Firestore role fallbacks, and email pattern Admin promotions.
  */
 export async function verifyAuthToken(request: Request): Promise<VerifiedUser | null> {
   try {
@@ -26,98 +31,45 @@ export async function verifyAuthToken(request: Request): Promise<VerifiedUser | 
 
     if (!token) return null;
 
-    const cookieHeader = request.headers.get('cookie') || '';
-    const hasAdminCookie = cookieHeader.includes('anx_admin=true') || cookieHeader.includes('admin');
-
-    // Check development / mock tokens
-    const tokenLower = token.toLowerCase();
-    if (
-      tokenLower.startsWith('mock_admin') ||
-      tokenLower.startsWith('admin_') ||
-      tokenLower.includes('admin_anx') ||
-      tokenLower === 'mock-admin-token' ||
-      tokenLower === 'admin-demo-token' ||
-      tokenLower === 'admin@algorithmaliens.com' ||
-      tokenLower === 'admin@algorithmaliens' ||
-      tokenLower === 'admin@algoritmaliens.com' ||
-      tokenLower === 'admin@algoritmaliens' ||
-      tokenLower === 'admin@anx.club'
-    ) {
-      return {
-        uid: 'admin_user',
-        email: token.includes('@') ? token : 'admin@algorithmaliens.com',
-        role: 'Admin',
-      };
-    }
-
-    if (
-      tokenLower.startsWith('mock_') ||
-      tokenLower.startsWith('session_') ||
-      tokenLower.startsWith('demo-token-') ||
-      tokenLower.startsWith('usr_') ||
-      tokenLower === 'user_rohit' ||
-      tokenLower === 'default_user_123' ||
-      tokenLower === 'rohit@example.com' ||
-      tokenLower === 'emma.watson@example.com'
-    ) {
-      return {
-        uid: token,
-        email: token.includes('@') ? token : `${token}@anx.club`,
-        role: 'user',
-      };
-    }
-
     let decodedToken: any = null;
     try {
       decodedToken = await adminAuth.verifyIdToken(token);
     } catch (err: any) {
-      console.warn(`[verifyAuthToken] Token verification fallback: ${err?.message || err}`);
-      if (
-        tokenLower === 'admin@algorithmaliens.com' || 
-        tokenLower === 'admin@algorithmaliens' ||
-        tokenLower === 'admin@algoritmaliens.com' ||
-        tokenLower === 'admin@algoritmaliens' ||
-        tokenLower === 'admin@anx.club' || 
-        tokenLower.includes('admin_anx')
-      ) {
-        return {
-          uid: 'admin_anx_core',
-          email: 'admin@algorithmaliens.com',
-          role: 'Admin',
-        };
-      }
+      console.warn(`[verifyAuthToken] Token verification failed: ${err?.message || err}`);
       return null;
     }
 
-    // If role is in custom claims, use it
-    let role = decodedToken.role;
-
-    // Otherwise, try to fetch it from Firestore
-    if (!role) {
-      try {
-        const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
-        if (userDoc.exists) {
-          role = userDoc.data()?.role;
-        }
-      } catch (err: any) {
-        console.warn(`[verifyAuthToken] Could not fetch user role: ${err?.message || err}`);
-      }
+    if (!decodedToken || !decodedToken.uid) {
+      return null;
     }
 
-    const userEmail = (decodedToken.email || '').toLowerCase();
-    if (
-      userEmail === 'admin@algorithmaliens.com' || 
-      userEmail === 'admin@anx.club' ||
-      userEmail.startsWith('admin@') ||
-      role?.toLowerCase() === 'admin'
-    ) {
-      role = 'Admin';
+    const uid = decodedToken.uid;
+    const email = decodedToken.email || '';
+
+    // Authoritative role lookup from Turso database (fail closed on failure)
+    let dbUser: any = null;
+    try {
+      dbUser = await usersRepository.getById(uid);
+      if (!dbUser) {
+        dbUser = await usersRepository.provisionMember({
+          id: uid,
+          email: email || `user_${uid}@anx.club`,
+          full_name: decodedToken.name || decodedToken.display_name || (email ? email.split('@')[0] : 'Member'),
+        });
+      }
+    } catch (dbErr: any) {
+      console.error('[verifyAuthToken] Authoritative Turso role lookup failed (failing closed):', dbErr?.message || dbErr);
+      return null;
+    }
+
+    if (!dbUser) {
+      return null;
     }
 
     return {
       uid: decodedToken.uid,
       email: decodedToken.email,
-      role: role || 'user',
+      role: dbUser.role || 'Member',
     };
   } catch (error: any) {
     console.warn(`[verifyAuthToken] Error: ${error?.message || error}`);

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
-import { authenticate } from "@/lib/auth";
+import { authenticate, requireAdmin } from "@/lib/auth";
 import { MOCK_EVENTS } from "@/lib/constants";
 import { findMemoryEvent } from "@/lib/memory-store";
+import { eventsRepository } from "@/lib/turso/repositories/eventsRepository";
 import * as admin from "firebase-admin";
 
 export const dynamic = "force-dynamic";
@@ -12,20 +13,51 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const { id } = params;
     let eventData: any = null;
 
+    // Check Turso relational database first
     try {
-      const doc = await adminDb.collection("events").doc(id).get();
-      if (doc.exists) {
-        const d = doc.data() || {};
+      const tursoEvent = await eventsRepository.getById(id);
+      if (tursoEvent) {
         eventData = {
-          id: doc.id,
-          ...d,
-          date: d.date?.toDate ? d.date.toDate().toISOString() : d.date,
-          createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt,
-          updatedAt: d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : d.updatedAt,
+          id: tursoEvent.id,
+          title: tursoEvent.title,
+          description: tursoEvent.description,
+          date: new Date(tursoEvent.date).toISOString(),
+          category: tursoEvent.category,
+          capacity: tursoEvent.capacity,
+          seatsBooked: tursoEvent.seats_booked,
+          seatsRemaining: Math.max(0, tursoEvent.capacity - tursoEvent.seats_booked),
+          venue: tursoEvent.venue,
+          price: tursoEvent.price,
+          isPaid: (tursoEvent as any).is_paid === 1 || tursoEvent.price > 0,
+          isLive: (tursoEvent as any).is_live === 1 || tursoEvent.is_active === 1,
+          bannerUrl: (tursoEvent as any).banner_url || tursoEvent.poster_url,
+          tags: JSON.parse((tursoEvent as any).tags_json || '[]'),
+          speakers: JSON.parse((tursoEvent as any).speakers_json || '[]'),
+          agenda: JSON.parse((tursoEvent as any).agenda_json || '[]'),
+          createdAt: new Date(tursoEvent.created_at).toISOString(),
+          updatedAt: new Date(tursoEvent.updated_at).toISOString(),
         };
       }
-    } catch (dbErr) {
-      console.warn(`Firestore get event ${id} error:`, dbErr);
+    } catch (tursoErr) {
+      console.warn(`Turso get event ${id} error:`, tursoErr);
+    }
+
+    if (!eventData) {
+      try {
+        const doc = await adminDb.collection("events").doc(id).get();
+        if (doc.exists) {
+          const d = doc.data() || {};
+          eventData = {
+            id: doc.id,
+            ...d,
+            date: d.date?.toDate ? d.date.toDate().toISOString() : d.date,
+            createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt,
+            updatedAt: d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : d.updatedAt,
+          };
+        }
+      } catch (dbErr) {
+        console.warn(`Firestore get event ${id} error:`, dbErr);
+      }
     }
 
     if (!eventData) {
@@ -62,19 +94,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const userId = await authenticate(request);
-    if (!userId) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
-
-    const userDoc = await adminDb.collection("users").doc(userId).get();
-    const userData = userDoc.data();
-    const userEmail = (userData?.email || '').toLowerCase();
-    const isAdmin = userData?.role?.toLowerCase() === "admin" || userEmail === "admin@algorithmaliens.com" || userId.includes("admin");
-
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
-    }
+    const authRes = await requireAdmin(request);
+    if ('response' in authRes) return authRes.response;
 
     const { id } = params;
     const body = await request.json();
@@ -94,19 +115,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const userId = await authenticate(request);
-    if (!userId) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
-
-    const userDoc = await adminDb.collection("users").doc(userId).get();
-    const userData = userDoc.data();
-    const userEmail = (userData?.email || '').toLowerCase();
-    const isAdmin = userData?.role?.toLowerCase() === "admin" || userEmail === "admin@algorithmaliens.com" || userId.includes("admin");
-
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
-    }
+    const authRes = await requireAdmin(request);
+    if ('response' in authRes) return authRes.response;
 
     const { id } = params;
     await adminDb.collection("events").doc(id).update({

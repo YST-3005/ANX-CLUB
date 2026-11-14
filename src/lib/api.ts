@@ -78,8 +78,8 @@ export const authApi = {
 };
 
 export const dashboardApi = {
-  get: (userId: string) =>
-    api.get(`/module2/dashboard`, { params: { userId }, headers: { 'x-user-id': userId } }),
+  get: (userId?: string) =>
+    api.get(`/module2/dashboard`, { params: userId ? { userId } : undefined }),
 };
 
 export const eventsApi = {
@@ -141,7 +141,12 @@ export const adminApi = {
   getEventRegistrations: (id: string) => api.get(`/admin/events/${id}/registrations`),
 
   // Mentors
+  getMentors: () => api.get('/admin/mentors'),
   addMentor: (data: any) => api.post('/admin/mentors', data),
+  updateMentor: (id: string, data: any) => api.patch(`/admin/mentors/${id}`, data),
+  deleteMentor: (id: string) => api.delete(`/admin/mentors/${id}`),
+  resendMentorInvite: (id: string) => api.post(`/admin/mentors/${id}/resend-invite`),
+  getMentorInvitations: () => api.get('/admin/mentors/invitations'),
   updateMentorRequest: (id: string, data: any) => api.patch(`/admin/mentor-requests/${id}`, data),
 
   // Users

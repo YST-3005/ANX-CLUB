@@ -2,21 +2,12 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getMemoryRoadmaps } from '@/lib/memory-store';
 import * as admin from 'firebase-admin';
-import { verifyAuthToken } from '@/lib/firebase/admin-auth';
+import { requireAdmin } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
-    const verifiedUser = await verifyAuthToken(request);
-    const userEmail = (verifiedUser?.email || '').toLowerCase().trim();
-    const isAdmin = verifiedUser?.role === 'Admin' || 
-                    userEmail === 'admin@algorithmaliens.com' || 
-                    userEmail === 'admin@anx.club' ||
-                    userEmail === 'admin@algoritmaliens.com' ||
-                    verifiedUser?.uid === 'admin_user' ||
-                    verifiedUser?.uid === 'admin_anx_core';
-    if (!verifiedUser || !isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized: Admins only' }, { status: 403 });
-    }
+    const authRes = await requireAdmin(request);
+    if ('response' in authRes) return authRes.response;
     const body = await request.json();
     const { track, stepName, url, isMandatory } = body;
 

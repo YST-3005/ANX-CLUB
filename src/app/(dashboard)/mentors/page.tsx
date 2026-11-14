@@ -11,6 +11,7 @@ import toast from 'react-hot-toast'
 import { useAuth } from '@/modules/module3/components/AuthContext'
 import { useEffect } from 'react'
 import { mentorsApi } from '@/lib/api'
+import { getAuthToken } from '@/lib/auth-helpers'
 import { PremiumGateModal } from '@/components/common/PremiumGateModal'
 
 const SLOT_TIMINGS = [
@@ -124,41 +125,45 @@ export default function MentorsPage() {
     setIsSubmitting(true)
     try {
       const isPaid = mentorRate > 0
-      const generatedMeetLink = `https://meet.google.com/anx-${activeBookingMentor.id || 'mentor'}-${Math.floor(1000 + Math.random() * 9000)}`
+      const token = await getAuthToken(user)
 
       const payload = {
-        memberId: user.uid,
-        memberName: profile?.fullName || user.displayName || "Anonymous Member",
-        memberEmail: user.email || profile?.email || "member@example.com",
-        mentorName: activeBookingMentor.name,
-        dateTime: `${bookingDetails.date} ${bookingDetails.time}`,
-        date: bookingDetails.date,
-        time: bookingDetails.time,
-        status: isPaid ? "Approved" : "Pending",
-        reason: bookingDetails.reason,
+        mentorId: activeBookingMentor.id,
+        topic: bookingDetails.reason || '1-on-1 Mentorship Session',
+        message: `Preferred Date & Time: ${bookingDetails.date} (${bookingDetails.time})`,
         isPaid,
         amount: mentorRate,
-        meetingLink: generatedMeetLink,
         paymentId: isPaid ? `PAY_MEN_${Date.now()}` : undefined
       }
 
-      const res = await mentorsApi.book(activeBookingMentor.id, payload)
-      
+      const res = await fetch('/api/v1/mentoring/requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to submit mentoring request')
+      }
+
       setConfirmedBookingData({
         ...payload,
-        id: res?.data?.id || `req_${Date.now()}`,
-        meetingLink: res?.data?.meetingLink || generatedMeetLink
+        id: data.request?.id || `req_${Date.now()}`,
+        mentorName: activeBookingMentor.name,
+        date: bookingDetails.date,
+        time: bookingDetails.time,
+        status: 'pending'
       })
       setPaymentStep('confirmed')
 
-      if (isPaid) {
-        toast.success(`🎉 Registered! Slot scheduled for ${bookingDetails.time}. Google Meet link emailed! +40 XP awarded.`)
-      } else {
-        toast.success(`🎉 Registered! Mentorship session request submitted for ${bookingDetails.date} (${bookingDetails.time}). Details emailed! +40 XP awarded.`)
-      }
+      toast.success('🎉 Mentoring request submitted! Your mentor will review your topic and confirm scheduling.')
     } catch (err: any) {
       console.error(err)
-      toast.error(err.response?.data?.message || err.message || "Failed to submit booking request.")
+      toast.error(err.message || "Failed to submit booking request.")
     } finally {
       setIsSubmitting(false)
     }
@@ -521,41 +526,32 @@ export default function MentorsPage() {
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-bold text-white">Registered & Scheduled!</h3>
+                    <h3 className="text-lg font-bold text-white">Mentoring Request Submitted!</h3>
                     <p className="text-xs text-slate-300 mt-1">
-                      Your 1-on-1 session with <strong className="text-white">{confirmedBookingData.mentorName}</strong> has been confirmed.
+                      Your 1-on-1 session request has been sent to <strong className="text-white">{confirmedBookingData.mentorName}</strong> for review.
                     </p>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 text-left space-y-2.5 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Date & Slot:</span>
+                      <span className="text-slate-400">Topic:</span>
+                      <span className="font-bold text-white">{confirmedBookingData.topic}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Preferred Timing:</span>
                       <span className="font-bold text-white">{confirmedBookingData.date} ({confirmedBookingData.time})</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Status:</span>
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
-                        {confirmedBookingData.isPaid ? 'CONFIRMED / PAID' : 'REGISTERED / PENDING'}
+                      <span className="text-slate-400">Request Status:</span>
+                      <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold text-[10px]">
+                        PENDING MENTOR REVIEW
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">XP Awarded:</span>
-                      <span className="font-bold text-purple-400">+40 XP</span>
+                    <div className="pt-2 border-t border-white/10">
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Once your mentor accepts the request, they will confirm the date/time and the verified Google Meet conference link will be issued to your Student Dashboard.
+                      </p>
                     </div>
-                    {confirmedBookingData.meetingLink && (
-                      <div className="pt-2 border-t border-white/10">
-                        <span className="text-[10px] text-slate-400 block mb-1">Google Meet Link (also emailed to you):</span>
-                        <a 
-                          href={confirmedBookingData.meetingLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-fuchsia-400 hover:underline font-mono break-all flex items-center gap-1.5"
-                        >
-                          <Video className="w-3.5 h-3.5 shrink-0" />
-                          <span>{confirmedBookingData.meetingLink}</span>
-                        </a>
-                      </div>
-                    )}
                   </div>
 
                   <button

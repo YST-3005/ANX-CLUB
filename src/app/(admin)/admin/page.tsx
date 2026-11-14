@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { 
   Users, Calendar, Award, IndianRupee, ArrowUpRight, 
   ArrowDownRight, ShieldCheck, Sparkles, Plus, Clock, 
-  ExternalLink, ArrowRight, Activity 
+  ExternalLink, ArrowRight, Activity, UserCheck, CheckCircle2 
 } from 'lucide-react'
 import { MOCK_EVENTS, MOCK_USER } from '@/lib/constants'
 import { formatCurrency } from '@/lib/utils'
@@ -73,6 +73,12 @@ export default function AdminPage() {
 
           <div className="flex flex-wrap gap-3 shrink-0">
             <Link
+              href="/admin/mentors"
+              className="px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-amber-500/30"
+            >
+              <UserCheck className="w-4 h-4 text-amber-500" /> Manage Mentors
+            </Link>
+            <Link
               href="/admin/submissions"
               className="px-4 py-2.5 bg-muted/80 hover:bg-muted text-foreground font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-border"
             >
@@ -89,7 +95,7 @@ export default function AdminPage() {
       </section>
 
       {/* KPI Cards Grid */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* KPI 1 */}
         <div className="bg-card border border-border/50 rounded-2xl p-5 shadow-sm space-y-3 relative overflow-hidden">
           <div className="flex items-center justify-between">
@@ -136,7 +142,28 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* KPI 4 */}
+        {/* KPI 4: Mentors */}
+        <Link 
+          href="/admin/mentors" 
+          className="bg-card hover:bg-card/80 transition-colors border border-border/50 hover:border-amber-500/40 rounded-2xl p-5 shadow-sm space-y-3 relative overflow-hidden group block"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Mentors Network</span>
+            <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-500 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <UserCheck className="w-4.5 h-4.5" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-display text-2xl font-bold text-foreground">
+              {analytics?.totalMentors ?? 4}
+            </h3>
+            <p className="text-[10px] text-teal-500 font-semibold flex items-center gap-0.5">
+              <CheckCircle2 className="w-3.5 h-3.5" /> {analytics?.activeMentors ?? 4} available
+            </p>
+          </div>
+        </Link>
+
+        {/* KPI 5 */}
         <div className="bg-card border border-border/50 rounded-2xl p-5 shadow-sm space-y-3 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Estimated Yield</span>

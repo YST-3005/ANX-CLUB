@@ -1,0 +1,7 @@
+{
+  "name": "@anx/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript DTOs and contracts for ANX Club",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

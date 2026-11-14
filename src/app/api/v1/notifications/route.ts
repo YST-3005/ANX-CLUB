@@ -1,73 +1,74 @@
-import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase/admin";
-import { authenticate } from "@/lib/auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { authenticateUser } from '@/lib/auth';
+import { db } from '@/lib/turso/client';
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await authenticate(request);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await authenticateUser(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const snapshot = await adminDb.collection("notifications")
-      .where("recipientId", "==", userId)
-      .orderBy("createdAt", "desc")
-      .limit(50)
-      .get();
+    const result = await db.execute({
+      sql: `SELECT id, recipient_id, type, title, body, action_url, is_read, delivery_status, created_at
+            FROM mentoring_notifications
+            WHERE recipient_id = ?
+            ORDER BY created_at DESC
+            LIMIT 50`,
+      args: [auth.uid],
+    });
 
-    const notifications = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
+    const notifications = result.rows.map((row: any) => ({
+      id: String(row.id),
+      recipientId: String(row.recipient_id),
+      type: String(row.type),
+      title: String(row.title),
+      body: String(row.body),
+      actionUrl: row.action_url ? String(row.action_url) : undefined,
+      isRead: Number(row.is_read) === 1,
+      deliveryStatus: String(row.delivery_status),
+      createdAt: Number(row.created_at),
     }));
 
-    return NextResponse.json({ success: true, data: notifications });
+    return NextResponse.json({
+      notifications,
+      unreadCount: notifications.filter(n => !n.isRead).length,
+    });
   } catch (error: any) {
-    console.error("Error fetching notifications:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error('Failed to fetch notifications:', error);
+    return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
   }
 }
 
 export async function PATCH(request: NextRequest) {
   try {
-    const userId = await authenticate(request);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await authenticateUser(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { notificationId, markAllRead } = body;
+    const body = await request.json().catch(() => ({}));
+    const { id, all } = body;
 
-    if (markAllRead) {
-      const snapshot = await adminDb.collection("notifications")
-        .where("recipientId", "==", userId)
-        .where("isRead", "==", false)
-        .get();
-
-      const batch = adminDb.batch();
-      snapshot.docs.forEach(doc => {
-        batch.update(doc.ref, { isRead: true });
+    if (all) {
+      await db.execute({
+        sql: `UPDATE mentoring_notifications SET is_read = 1 WHERE recipient_id = ?`,
+        args: [auth.uid],
       });
-      await batch.commit();
-
-      return NextResponse.json({ success: true, message: "All notifications marked as read." });
+      return NextResponse.json({ success: true, message: 'All notifications marked as read' });
     }
 
-    if (!notificationId) {
-      return NextResponse.json({ error: "notificationId is required." }, { status: 400 });
+    if (id) {
+      await db.execute({
+        sql: `UPDATE mentoring_notifications SET is_read = 1 WHERE id = ? AND recipient_id = ?`,
+        args: [id, auth.uid],
+      });
+      return NextResponse.json({ success: true, message: 'Notification marked as read' });
     }
 
-    const notifRef = adminDb.collection("notifications").doc(notificationId);
-    const notifSnap = await notifRef.get();
-
-    if (!notifSnap.exists || notifSnap.data()?.recipientId !== userId) {
-      return NextResponse.json({ error: "Notification not found or unauthorized." }, { status: 404 });
-    }
-
-    await notifRef.update({ isRead: true });
-    return NextResponse.json({ success: true, message: "Notification marked as read." });
-
+    return NextResponse.json({ error: 'Missing notification id or all flag' }, { status: 400 });
   } catch (error: any) {
-    console.error("Error updating notifications:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error('Failed to update notifications:', error);
+    return NextResponse.json({ error: 'Failed to update notifications' }, { status: 500 });
   }
 }

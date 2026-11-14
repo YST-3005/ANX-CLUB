@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { adminDb, adminAuth } from '@/lib/firebase/admin';
-import { verifyAuthToken } from '@/lib/firebase/admin-auth';
+import { requireAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,16 +9,9 @@ const ADMIN_EMAILS = ['admin@algorithmaliens.com', 'admin@algoritmaliens.com', '
 
 export async function POST(request: NextRequest) {
   try {
-    const verifiedUser = await verifyAuthToken(request);
-    const email = (verifiedUser?.email || '').toLowerCase().trim();
-    const isAdmin = verifiedUser?.role?.toLowerCase() === 'admin' ||
-                    ADMIN_EMAILS.includes(email) ||
-                    verifiedUser?.uid === 'admin_user' ||
-                    verifiedUser?.uid === 'admin_anx_core';
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Forbidden: Administrator privileges required.' }, { status: 403 });
-    }
+    const authRes = await requireAdmin(request);
+    if ('response' in authRes) return authRes.response;
+    const verifiedUser = authRes.user;
 
     const body = await request.json();
     const { currentPassword, newPassword } = body;

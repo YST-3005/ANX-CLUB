@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import * as admin from 'firebase-admin';
+import { verifyCronAuthorization } from '@/lib/security/cron-auth';
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-    
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    if (!verifyCronAuthorization(request)) {
       return NextResponse.json({ error: 'Unauthorized: CRON_SECRET authorization required' }, { status: 401 });
     }
 

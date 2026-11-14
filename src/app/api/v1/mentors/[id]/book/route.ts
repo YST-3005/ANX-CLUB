@@ -1,154 +1,158 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
 import { authenticate } from '@/lib/auth';
-import { sendEmail } from '@/lib/resend';
-import { mentorBookingRequestEmail, mentorSessionScheduledEmail } from '@/lib/email-templates';
-import { addMemoryBooking } from '@/lib/memory-store';
-import { awardXP } from '@/lib/gamification';
+import { requestsRepository } from '@/lib/turso/repositories/requestsRepository';
+import { mentorsRepository } from '@/lib/turso/repositories/mentorsRepository';
+import { usersRepository } from '@/lib/turso/repositories/usersRepository';
+import { paymentsRepository } from '@/lib/turso/repositories/paymentsRepository';
+import { queuePushWebhook } from '@/lib/webhooks/dispatcher';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const userId = await authenticate(request);
-    
-    const body = await request.json().catch(() => ({}));
-    
-    // Resolve user & parameters flexibly from auth token or body payload
-    const actualUserId = userId || body.userId || body.memberId || 'default_user_123';
-    const userEmail = body.userEmail || body.email || body.memberEmail || 'member@example.com';
-    const userName = body.userName || body.memberName || 'Member';
-    const topic = body.topic || body.reason || body.message || '1-on-1 Mentorship Session';
-    const isPaid = Boolean(body.isPaid || body.paymentId || (body.amount && body.amount > 0));
-    const amount = Number(body.amount || 0);
-    
-    const dateTimeStr = body.dateTime || '';
-    const date = body.date || body.preferredDate || (dateTimeStr ? dateTimeStr.split(' ')[0] : new Date().toISOString().split('T')[0]);
-    const time = body.time || body.preferredTime || (dateTimeStr ? dateTimeStr.split(' ').slice(1).join(' ') : '10:00 AM - 11:00 AM');
-    
-    const today = new Date().toISOString().split('T')[0];
-    if (date < today) {
-      return NextResponse.json({
-        success: false,
-        message: 'Cannot schedule mentorship sessions for past dates. Please select an upcoming date.'
-      }, { status: 400 });
+    const authUserId = await authenticate(request);
+    if (!authUserId) {
+      return NextResponse.json(
+        { success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required to request mentorship.' } },
+        { status: 401 }
+      );
     }
 
-    const mentorName = body.mentorName || 'Expert Mentor';
+    const mentor = await mentorsRepository.getById(params.id);
+    if (!mentor) {
+      return NextResponse.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'Mentor not found.' } },
+        { status: 404 }
+      );
+    }
+
+    if (!mentor.is_available) {
+      return NextResponse.json(
+        { success: false, error: { code: 'UNAVAILABLE', message: 'This mentor is currently unavailable for bookings.' } },
+        { status: 400 }
+      );
+    }
+
+    if (mentor.user_id && mentor.user_id === authUserId) {
+      return NextResponse.json(
+        { success: false, error: { code: 'INVALID_REQUEST', message: 'You cannot request mentorship from your own mentor profile.' } },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const userEmail = body.userEmail || body.email || body.memberEmail || `user_${authUserId}@anx.club`;
+    const userName = body.userName || body.memberName || 'Member';
+    const topic = body.topic || body.reason || body.message || '1-on-1 Mentorship Consultation';
     const message = body.message || body.reason || '';
 
-    // If paid session -> Generate confirmed Google Meet link for the selected slot timing
-    const meetingLink = isPaid || body.meetingLink 
-      ? (body.meetingLink || `https://meet.google.com/anx-${params.id}-${Math.floor(1000 + Math.random() * 9000)}`)
-      : undefined;
+    // Verify payment for paid mentoring consultations
+    const isPaidMentor = Number(mentor.hourly_rate || 0) > 0;
+    let verifiedPaymentId: string | undefined = undefined;
 
-    const requestData = {
-      mentorId: params.id,
-      mentorName,
-      memberId: actualUserId,
-      memberName: userName,
-      memberEmail: userEmail,
+    if (isPaidMentor) {
+      const paymentRefId = body.paymentId || body.orderId || body.razorpay_payment_id;
+      if (!paymentRefId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'PAYMENT_REQUIRED',
+              message: `This mentor charges ₹${mentor.hourly_rate}/hr. Verified payment is required to submit a booking.`,
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      const isPaymentVerified = await paymentsRepository.verifyMentoringPayment(
+        authUserId,
+        paymentRefId,
+        mentor.hourly_rate
+      );
+
+      if (!isPaymentVerified) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'PAYMENT_NOT_VERIFIED',
+              message: 'Payment verification failed: No genuine verified payment record found for this mentor consultation.',
+            },
+          },
+          { status: 402 }
+        );
+      }
+
+      verifiedPaymentId = paymentRefId;
+    }
+
+    // Ensure student exists in Turso
+    let user = await usersRepository.getById(authUserId);
+    if (!user) {
+      user = await usersRepository.provisionMember({
+        id: authUserId,
+        email: userEmail,
+        full_name: userName,
+      });
+    }
+
+    // Create mentoring request in Turso (status: 'pending')
+    // Accepting and scheduling must be done by the mentor
+    const newRequest = await requestsRepository.create({
+      student_id: authUserId,
+      mentor_id: params.id,
       topic,
-      preferredDate: date,
-      preferredTime: time,
       message,
-      isPaid,
-      amount,
-      meetingLink,
-      status: isPaid ? 'Approved' : 'Pending',
-      createdAt: new Date().toISOString()
-    };
+      is_paid: isPaidMentor,
+      amount: isPaidMentor ? mentor.hourly_rate : 0,
+      payment_id: verifiedPaymentId,
+    });
 
-    let docId = 'req_' + Date.now();
-    try {
-      const docRef = await adminDb.collection('mentorRequests').add(requestData);
-      docId = docRef.id;
-    } catch (dbErr) {
-      console.warn('Firestore write for mentor request fallback to memory store:', dbErr);
+    // Notify mentor via push webhook
+    if (mentor.user_id) {
+      queuePushWebhook({
+        recipientId: mentor.user_id,
+        entity: 'mentor_request',
+        entity_id: newRequest.id,
+        summary: `New Request from ${user.full_name}`,
+        version: newRequest.version,
+        updated_at: newRequest.updated_at,
+        data: {
+          requestId: newRequest.id,
+          studentName: user.full_name,
+          topic,
+          actionUrl: '/mentor/dashboard',
+          message: `${user.full_name} submitted a mentorship request on "${topic}".`,
+        },
+      });
     }
 
-    // Always record in memory store for instant admin and user reflection
-    addMemoryBooking({ id: docId, ...requestData });
-
-    // Award +40 XP for Booking a Mentorship Session
-    let xpAwarded = 40;
-    try {
-      const xpRes = await awardXP(actualUserId, 'mentor', 40, docId, `Booked 1-on-1 Mentorship session with ${mentorName}`);
-      if (xpRes?.xpAwarded) xpAwarded = xpRes.xpAwarded;
-    } catch (xpErr) {
-      console.warn('XP award notice for mentor booking:', xpErr);
-    }
-
-    // Send notification email asynchronously
-    try {
-      if (isPaid && meetingLink) {
-        // Paid Session -> Send Scheduled Confirmation with Google Meet Link according to slot timings
-        await sendEmail(
-          userEmail,
-          `🗓️ Mentorship Session Scheduled with ${mentorName}`,
-          mentorSessionScheduledEmail({
-            mentorName,
-            userName,
-            date,
-            time,
-            topic,
-            meetingLink,
-            isPaid: true,
-            amount
-          })
-        );
-      } else {
-        // Free Session -> Send Request Registered Confirmation
-        await sendEmail(
-          userEmail,
-          `Mentor Session Requested: ${mentorName}`,
-          mentorBookingRequestEmail(mentorName, date, time, topic)
-        );
-      }
-    } catch (emailErr) {
-      console.warn('Notification email sending skipped or failed:', emailErr);
-    }
-
-    // Create a real-time notification for the mentor if their account exists
-    try {
-      const mentorDoc = await adminDb.collection('mentors').doc(params.id).get();
-      if (mentorDoc.exists && mentorDoc.data()?.ownerEmail) {
-        const userSnap = await adminDb.collection('users')
-          .where('email', '==', mentorDoc.data()?.ownerEmail)
-          .get();
-        
-        if (!userSnap.empty) {
-          const mentorUserId = userSnap.docs[0].id;
-          await adminDb.collection('notifications').add({
-            recipientId: mentorUserId,
-            title: 'New Session Request',
-            body: `${userName} requested a session on ${date} (${time}).`,
-            actionUrl: '/mentor-dashboard',
-            channels: ['in_app'],
-            isRead: false,
-            createdAt: new Date().toISOString()
-          });
-        }
-      }
-    } catch (notifErr) {
-      console.warn('Failed to create mentor notification:', notifErr);
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: isPaid 
-        ? `Session registered! Google Meet link for slot ${time} sent to your email.` 
-        : `Registered! Session request sent and confirmation emailed to you.`,
-      data: { 
-        id: docId, 
-        xpAwarded,
-        ...requestData 
-      }
-    }, { status: 201 });
-  } catch (error: any) {
-    console.error('Error submitting mentor request:', error);
     return NextResponse.json(
-      { success: false, error: { code: "INTERNAL_ERROR", message: "Error submitting request" } }, 
-      { status: 500 }
+      {
+        success: true,
+        message: 'Mentoring request submitted successfully. The mentor will review and schedule your session.',
+        data: {
+          id: newRequest.id,
+          status: newRequest.status,
+          topic: newRequest.topic,
+          mentorName: mentor.full_name,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    console.error(`[POST /api/v1/mentors/${params.id}/book] Error:`, error);
+    const isConflict = error?.message?.includes('already have an active request');
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: isConflict ? 'CONFLICT' : 'INTERNAL_ERROR',
+          message: error?.message || 'Error submitting mentoring request',
+        },
+      },
+      { status: isConflict ? 409 : 500 }
     );
   }
 }
-
